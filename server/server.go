@@ -177,7 +177,9 @@ func (s *Server) serveConnection(conn net.Conn) {
 
 // Process the given request, producing a response accordingly.
 func (s *Server) handleRequest(req msg.Request) msg.Response {
-	log.Printf("Processing request: %v\n", req)
+	if s.Conf.DebugLevel >= config.DebugSome {
+		log.Printf("Processing request: %v\n", req)
+	}
 	var response msg.Response
 	var err error = nil
 	switch req.Cmd {
@@ -197,14 +199,17 @@ func (s *Server) handleRequest(req msg.Request) msg.Response {
 		s.shutdownChan <- struct{}{}
 		lastActive := s.activeTask
 		_, err = s.stopTimer()
-		return msg.ShutdownResponse(lastActive, err)
+		response = msg.ShutdownResponse(lastActive, err)
 	default:
 		err = fmt.Errorf("Not implemented: %s", req.Cmd)
 	}
 
 	if err != nil {
 		log.Println(err)
-		return msg.ErrorResponse(err)
+		response = msg.ErrorResponse(err)
+	}
+	if s.Conf.DebugLevel >= config.DebugAll {
+		log.Printf("Returning response: %v\n", response)
 	}
 	return response
 }
@@ -225,7 +230,7 @@ func (s *Server) startTimer(taskName string) (msg.Response, error) {
 // Stop the current timer, respond its details.
 func (s *Server) stopTimer() (msg.Response, error) {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No task active.")), nil
+		return msg.ErrorResponse(fmt.Errorf("No active task")), nil
 	}
 	s.activeTask.Stop()
 	err := s.backend.Save(s.activeTask)
@@ -237,7 +242,7 @@ func (s *Server) stopTimer() (msg.Response, error) {
 // Respond about the currently active task.
 func (s *Server) currentTask() msg.Response {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No task active."))
+		return msg.ErrorResponse(fmt.Errorf("No active task"))
 	}
 	return msg.CurrentTaskResponse(s.activeTask)
 }
@@ -246,7 +251,7 @@ func (s *Server) currentTask() msg.Response {
 // its details.
 func (s *Server) abortCurrentTask() msg.Response {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No task active."))
+		return msg.ErrorResponse(fmt.Errorf("No active task"))
 	}
 	s.activeTask.Stop()
 	aborted := s.activeTask

@@ -80,7 +80,14 @@ func AbortedTaskResponse(task *Task) Response {
 
 // Create a response containing the given query summaries.
 func QueryResponse(summaries []Summary) Response {
-	resp := Response{Status: RespSuccess}
+	var resp Response
+	if summaries == nil {
+		resp = Response{Status: RespSuccess}
+		resp.addToBody(line("Nothing found"))
+		return resp
+	}
+
+	resp = Response{Status: RespSuccess}
 	addNewline := false
 	for _, s := range summaries {
 		// Separate summaries by an empty line; skipped in first iteration.

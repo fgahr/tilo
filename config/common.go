@@ -6,13 +6,21 @@ import (
 	"path/filepath"
 )
 
+const (
+	DebugNone = 0
+	DebugSome = 1
+	DebugAll  = 2
+)
+
 // Configuration parameters.
 type Params struct {
 	ConfDir    string // Where to keep the DB file.
 	TempDir    string // Where to keep the domain socket.
 	DBFileName string // The name of the DB file.
 	SocketName string // The name of the socket file.
+	DebugLevel int    // Determines the amount of additional log output.
 }
+
 // The socket to use for communication with the server.
 func (p *Params) Socket() string {
 	return filepath.Join(p.TempDir, p.SocketName)
@@ -31,5 +39,11 @@ func DefaultParams() (*Params, error) {
 		return nil, err
 	}
 	confDir := filepath.Join(homeDir, ".config", "tilo")
-	return &Params{confDir, tempDir, "tilo.db", "server"}, nil
+	return &Params{
+		ConfDir:    confDir,
+		TempDir:    tempDir,
+		DBFileName: "tilo.db",
+		SocketName: "server",
+		DebugLevel: DebugAll, // TODO: Make this a non-default and flexible.
+	}, nil
 }
