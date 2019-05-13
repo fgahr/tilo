@@ -129,6 +129,7 @@ GROUP BY name;`,
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var duration, started, ended int64
 	if rows.Next() {
 		err = rows.Scan(&duration, &started, &ended)
@@ -142,6 +143,7 @@ GROUP BY name;`,
 			End:   time.Unix(ended, 0),
 		}}, nil
 	}
+
 	return nil, rows.Err()
 }
 
@@ -156,6 +158,7 @@ GROUP BY name;`,
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var result []msg.Summary
 	for rows.Next() {
 		var taskName string
@@ -172,5 +175,6 @@ GROUP BY name;`,
 		}
 		result = append(result, taskSummary)
 	}
+
 	return result, rows.Err()
 }
