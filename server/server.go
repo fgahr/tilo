@@ -187,6 +187,8 @@ func (s *Server) handleRequest(req msg.Request) msg.Response {
 		response, err = s.stopTimer()
 	case msg.CmdCurrent:
 		response = s.currentTask()
+	case msg.CmdAbort:
+		response = s.abortCurrentTask()
 	case msg.CmdQuery:
 		response, err = s.evaluateQuery(req)
 	case msg.CmdShutdown:
@@ -238,6 +240,18 @@ func (s *Server) currentTask() msg.Response {
 		return msg.ErrorResponse(fmt.Errorf("No task active."))
 	}
 	return msg.CurrentTaskResponse(s.activeTask)
+}
+
+// Abort the currently active task without saving it to the backend. Respond
+// its details.
+func (s *Server) abortCurrentTask() msg.Response {
+	if s.activeTask == nil {
+		return msg.ErrorResponse(fmt.Errorf("No task active."))
+	}
+	s.activeTask.Stop()
+	aborted := s.activeTask
+	s.activeTask = nil
+	return msg.AbortedTaskResponse(aborted)
 }
 
 // Gather a query response from the database.

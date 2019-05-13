@@ -54,7 +54,7 @@ func ShutdownResponse(task *Task, err error) Response {
 // A response informing that newTask has been started, superseding oldTask.
 func StartTaskResponse(newTask *Task, oldTask *Task) Response {
 	resp := Response{Status: RespSuccess}
-	resp.addTaskDescription("New", newTask)
+	resp.addTaskDescription("Now", newTask)
 	if oldTask != nil {
 		resp.addTaskDescription("Stopped", oldTask)
 	}
@@ -64,13 +64,13 @@ func StartTaskResponse(newTask *Task, oldTask *Task) Response {
 // A response informing about a currently running task.
 func CurrentTaskResponse(task *Task) Response {
 	resp := Response{Status: RespSuccess}
-	resp.addTaskDescription("Current", task)
+	resp.addTaskDescription("Currently", task)
 	return resp
 }
 
 // A response informing that a task has been stopped.
 func StoppedTaskResponse(task *Task) Response {
-	return stopWithTag("Stopped", task)
+	return stopWithTag("Previously", task)
 }
 
 // A response informing that a task has been aborted.
@@ -123,12 +123,12 @@ func (r Response) Err() error {
 func (r *Response) addTaskDescription(tag string, task *Task) {
 	if task.HasEnded {
 		r.addToBody(
-			line(tag, "Started", "Ended"),
+			line(tag, "Since", "Until"),
 			line(task.Name, formatTime(task.Started), formatTime(task.Ended)),
 		)
 	} else {
 		r.addToBody(
-			line(tag, "Started"),
+			line(tag, "Since"),
 			line(task.Name, formatTime(task.Started)),
 		)
 	}
