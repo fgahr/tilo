@@ -2,12 +2,14 @@
 package main
 
 import (
+	"fmt"
 	"github.com/freag/tilo/client"
 	"github.com/freag/tilo/config"
 	"github.com/freag/tilo/server"
-	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // Print usage information for this program.
@@ -37,6 +39,7 @@ func main() {
 	}
 	// "server run" and "server start" do not involve requests
 	if len(args) > 1 && args[0] == "server" && args[1] == "run" {
+		signal.Ignore(syscall.SIGHUP)
 		err = server.Run(params)
 	} else if len(args) > 1 && args[0] == "server" && args[1] == "start" {
 		err = server.StartInBackground(params)

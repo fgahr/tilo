@@ -201,6 +201,7 @@ func (s *Server) handleRequest(req msg.Request) msg.Response {
 	}
 
 	if err != nil {
+		log.Println(err)
 		return msg.ErrorResponse(err)
 	}
 	return response
@@ -318,7 +319,7 @@ func StartInBackground(params *config.Params) error {
 	if err != nil {
 		return err
 	}
-	proc, err := os.StartProcess(executable, []string{executable, "server", "start"}, &procAttr)
+	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
 		return err
 	}
