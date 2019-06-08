@@ -3,6 +3,7 @@ package msg
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -72,6 +73,11 @@ func ShutdownRequest() Request {
 	return Request{Cmd: CmdShutdown}
 }
 
+type parser interface {
+	identifier() string
+	handleArgs(args []string, now time.Time) (Request, error)
+}
+
 // Create a request based on command line parameters and the current time.
 // This function contains the main command language logic.
 // Note that passing the time here is necessary to avoid inconsistencies when
@@ -81,33 +87,55 @@ func ParseRequest(args []string, now time.Time) (Request, error) {
 	if len(args) == 0 {
 		panic("Empty argument list passed from main.")
 	}
-
-	switch args[0] {
-	case argStart:
-		return parseStart(args[1:])
-	case argStop:
-		return parseCmdOnly(CmdStop, args[1:])
-	case argCurrent:
-		return parseCmdOnly(CmdCurrent, args[1:])
-	case argAbort:
-		return parseCmdOnly(CmdAbort, args[1:])
-	case argQuery:
-		return parseQuery(args[1:], now)
-	case argShutdown:
-		return parseCmdOnly(CmdShutdown, args[1:])
-	default:
-		return Request{}, fmt.Errorf("Unknown command: %s", args[0])
+	parsers := []parser{
+		cmdOnlyParser{argStop, CmdStop, os.Stderr},
+		cmdOnlyParser{argCurrent, CmdCurrent, os.Stderr},
+		cmdOnlyParser{argAbort, CmdAbort, os.Stderr},
+		cmdOnlyParser{argStop, CmdShutdown, os.Stderr},
+		startParser{os.Stderr},
+		queryParser{os.Stderr},
 	}
+
+	cliCmd := args[0]
+	for _, p := range parsers {
+		if cliCmd == p.identifier() {
+			return p.handleArgs(args[1:], now)
+		}
+	}
+	// No parser found for this command
+	return Request{}, fmt.Errorf("Unknown command: %s", args[0])
 }
 
-// Parse args for a start request.
-func parseStart(args []string) (Request, error) {
+type cmdOnlyParser struct {
+	cliCmd string
+	reqCmd string
+	errout io.Writer
+}
+
+func (p cmdOnlyParser) identifier() string {
+	return p.cliCmd
+}
+
+func (p cmdOnlyParser) handleArgs(args []string, now time.Time) (Request, error) {
+	warnIgnoredArguments(args, p.errout)
+	return Request{Cmd: p.reqCmd}, nil
+}
+
+type startParser struct {
+	errout io.Writer
+}
+
+func (p startParser) identifier() string {
+	return argStart
+}
+
+func (p startParser) handleArgs(args []string, now time.Time) (Request, error) {
 	if len(args) < 1 {
 		return Request{},
 			fmt.Errorf("Missing task name for 'start'.")
 	}
 
-	warnIgnoredArguments(args[1:])
+	warnIgnoredArguments(args[1:], p.errout)
 
 	tasks, err := getTaskNames(args[0])
 	if err != nil {
@@ -119,14 +147,16 @@ func parseStart(args []string) (Request, error) {
 	return Request{Cmd: CmdStart, Tasks: tasks}, nil
 }
 
-// Parse a request containing only a command. Extra arguments will be ignored.
-func parseCmdOnly(cmd string, args []string) (Request, error) {
-	warnIgnoredArguments(args)
-	return Request{Cmd: cmd}, nil
+type queryParser struct {
+	errout io.Writer
+}
+
+func (p queryParser) identifier() string {
+	return argQuery
 }
 
 // Parse args for a query request.
-func parseQuery(args []string, now time.Time) (Request, error) {
+func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
 	if len(args) == 0 {
 		return Request{},
 			fmt.Errorf("Missing arguments for query request.")
@@ -312,9 +342,9 @@ func shouldCombine(args []string) bool {
 }
 
 // If args are given, a warning is emitted that they will be ignored.
-func warnIgnoredArguments(args []string) {
+func warnIgnoredArguments(args []string, out io.Writer) {
 	if len(args) > 0 {
-		fmt.Fprintf(os.Stderr, "Extra arguments ignored: %v", args)
+		fmt.Fprintf(out, "Extra arguments ignored: %v", args)
 	}
 }
 
