@@ -73,7 +73,7 @@ func ShutdownRequest() Request {
 	return Request{Cmd: CmdShutdown}
 }
 
-type parser interface {
+type argParser interface {
 	identifier() string
 	handleArgs(args []string, now time.Time) (Request, error)
 }
@@ -87,7 +87,7 @@ func ParseRequest(args []string, now time.Time) (Request, error) {
 	if len(args) == 0 {
 		panic("Empty argument list passed from main.")
 	}
-	parsers := []parser{
+	parsers := []argParser{
 		cmdOnlyParser{argStop, CmdStop, os.Stderr},
 		cmdOnlyParser{argCurrent, CmdCurrent, os.Stderr},
 		cmdOnlyParser{argAbort, CmdAbort, os.Stderr},
@@ -102,7 +102,6 @@ func ParseRequest(args []string, now time.Time) (Request, error) {
 			return p.handleArgs(args[1:], now)
 		}
 	}
-	// No parser found for this command
 	return Request{}, fmt.Errorf("Unknown command: %s", args[0])
 }
 
@@ -162,21 +161,22 @@ func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
 			fmt.Errorf("Missing arguments for query request.")
 	}
 
-	request := Request{Cmd: CmdQuery}
-
 	tasks, err := getTaskNames(args[0])
 	if err != nil {
-		return request, err
+		return Request{}, err
 	}
 
 	details, err := getQueryArgs(args[1:], now)
 	if err != nil {
-		return request, err
+		return Request{}, err
 	}
 
-	request.Tasks = tasks
-	request.QueryArgs = details
-	request.Combine = shouldCombine(args)
+	request := Request{
+		Cmd:       CmdQuery,
+		Tasks:     tasks,
+		QueryArgs: details,
+		Combine:   shouldCombine(args),
+	}
 
 	return request, nil
 }
@@ -211,130 +211,237 @@ func validTaskName(name string) bool {
 	return true
 }
 
+type detailParser interface {
+	numberModifiers() int
+	identifier() string
+	parse(now time.Time, modifiers ...string) (QueryDetails, error)
+}
+
+func getDetailParsers() []detailParser {
+	return []detailParser{
+		noModDetailParser{id: prmToday, f: daysAgoFunc(0)},
+		noModDetailParser{id: prmYesterday, f: daysAgoFunc(1)},
+		noModDetailParser{id: prmThisWeek, f: weeksAgoFunc(0)},
+		noModDetailParser{id: prmLastWeek, f: weeksAgoFunc(1)},
+		noModDetailParser{id: prmThisMonth, f: monthsAgoFunc(0)},
+		noModDetailParser{id: prmLastMonth, f: monthsAgoFunc(1)},
+		noModDetailParser{id: prmThisYear, f: yearsAgoFunc(0)},
+		noModDetailParser{id: prmLastYear, f: yearsAgoFunc(1)},
+		singleModDetailParser{id: prmDate, f: getDate},
+		singleModDetailParser{id: prmMonth, f: getMonth},
+		singleModDetailParser{id: prmMonthsAgo, f: getMonthsAgo},
+		singleModDetailParser{id: prmYear, f: getYear},
+		singleModDetailParser{id: prmYearsAgo, f: getYearsAgo},
+		singleModDetailParser{id: prmSince, f: getSince},
+		betweenDetailParser{},
+	}
+}
+
 // Read the extra arguments for a query request.
 func getQueryArgs(args []string, now time.Time) ([]QueryDetails, error) {
 	if len(args) == 0 {
 		return []QueryDetails{QueryDetails{QryDay, isoDate(time.Now())}}, nil
 	}
+
 	var details []QueryDetails
-	for _, arg := range args {
-		if strings.Contains(arg, "=") {
-			parsed, err := parseWithModifier(arg, now)
-			if err != nil {
-				return nil, err
-			}
-			for _, p := range parsed {
-				details = append(details, p)
+	for i := 0; i < len(args); i++ {
+		if args[i] == "" {
+			continue
+		}
+
+		arg := strings.Split(args[i], "=")[0]
+		p := findParser(arg)
+		if p == nil {
+			return details, fmt.Errorf("No parser found for argument: %s", arg)
+		}
+
+		if p.numberModifiers() > 0 {
+			modifiers := getModifiers(&i, args)
+			for len(modifiers) > 0 {
+				if len(modifiers) < p.numberModifiers() {
+					return details, fmt.Errorf("Unbalanced modifiers: %s", args[i])
+				}
+				d, err := p.parse(now, modifiers[0:p.numberModifiers()]...)
+				if err != nil {
+					return details, err
+				}
+				modifiers = modifiers[p.numberModifiers():]
+				details = append(details, d)
 			}
 		} else {
-			parsed, err := parseWithoutModifiers(arg, now)
+			d, err := p.parse(now)
 			if err != nil {
-				return nil, err
+				return details, err
 			}
-			details = append(details, parsed)
+			details = append(details, d)
 		}
 	}
+
 	return details, nil
 }
 
-// Translate arguments which contain no modifiers, such as `--today`.
-func parseWithoutModifiers(arg string, now time.Time) (QueryDetails, error) {
-	switch arg {
-	case prmToday:
-		return daysAgo(now, 0), nil
-	case prmYesterday:
-		return daysAgo(now, 1), nil
-	case prmThisWeek:
-		return weeksAgo(now, 0), nil
-	case prmLastWeek:
-		return weeksAgo(now, 1), nil
-	case prmThisMonth:
-		return monthsAgo(now, 0), nil
-	case prmLastMonth:
-		return monthsAgo(now, 1), nil
-	case prmThisYear:
-		return yearsAgo(now, 0), nil
-	case prmLastYear:
-		return yearsAgo(now, 1), nil
-	default:
-		return nil, fmt.Errorf("Unknown flag: %s", arg)
+func findParser(arg string) detailParser {
+	parsers := getDetailParsers()
+	for _, p := range parsers {
+		if p.identifier() == arg {
+			return p
+		}
+	}
+	return nil
+}
+
+func getModifiers(iref *int, args []string) []string {
+	i := *iref
+	var allMods string
+	if strings.Contains(args[i], "=") {
+		allMods = strings.Split(args[i], "=")[1]
+	} else {
+		i++
+		allMods = args[i]
+	}
+	return strings.Split(allMods, ",")
+}
+
+type noModDetailParser struct {
+	id string
+	f  func(now time.Time) QueryDetails
+}
+
+func (p noModDetailParser) numberModifiers() int {
+	return 0
+}
+
+func (p noModDetailParser) identifier() string {
+	return p.id
+}
+
+func (p noModDetailParser) parse(now time.Time, _ ...string) (QueryDetails, error) {
+	return p.f(now), nil
+}
+
+func daysAgoFunc(days int) func(time.Time) QueryDetails {
+	return func(now time.Time) QueryDetails {
+		return daysAgo(now, days)
 	}
 }
 
-// Parse an argument of the form `--detail=modifier`
-func parseWithModifier(arg string, now time.Time) ([]QueryDetails, error) {
-	detailAndModifier := strings.Split(arg, "=")
-	detail := detailAndModifier[0]
-	modifier := detailAndModifier[1]
-
-	switch detail {
-	case prmDate:
-		if dates, ok := getDays(modifier); ok {
-			return dates, nil
-		}
-		return nil, fmt.Errorf("Must be a date or list of dates: %s", modifier)
-	case prmMonth:
-		if months, ok := getMonths(modifier); ok {
-			return months, nil
-		}
-		return nil, fmt.Errorf("Must be a month or list of months: %s", modifier)
-	case prmMonthsAgo:
-		if nums, ok := getNumbers(modifier); ok {
-			var details []QueryDetails
-			for _, n := range nums {
-				details = append(details, monthsAgo(now, n))
-			}
-			return details, nil
-		}
-		return nil, fmt.Errorf("Must be a number or list of numbers: %s", modifier)
-	case prmYear:
-		if nums, ok := getNumbers(modifier); ok {
-			var details []QueryDetails
-			for _, year := range nums {
-				details = append(details, QueryDetails{QryYear, fmt.Sprint(year)})
-			}
-			return details, nil
-		}
-		return nil, fmt.Errorf("Must be year or list of years: %s", modifier)
-	case prmYearsAgo:
-		if nums, ok := getNumbers(modifier); ok {
-			var details []QueryDetails
-			currentYear := now.Year()
-			for _, n := range nums {
-				details = append(details, QueryDetails{QryYear,
-					fmt.Sprint(currentYear - n)})
-			}
-			return details, nil
-		}
-		return nil, fmt.Errorf("Must be a number or list of numbers: %s", modifier)
-	case prmSince:
-		today := isoDate(now)
-		if startDates, ok := getDates(modifier); ok {
-			var details []QueryDetails
-			for _, start := range startDates {
-				details = append(details, QueryDetails{QryBetween, start, today})
-			}
-			return details, nil
-		}
-		return nil, fmt.Errorf("Must be a date or list of dates: %s", modifier)
-	case prmBetween:
-		if dates, ok := getDates(modifier); ok {
-			if len(dates) != 2 {
-				return nil, fmt.Errorf("Must be a list of two dates: %s", modifier)
-			}
-			return []QueryDetails{
-				QueryDetails{QryBetween, dates[0], dates[1]}}, nil
-		}
-		return nil, fmt.Errorf("Must be a list of two dates: %s", modifier)
-	default:
-		return nil, fmt.Errorf("Unknown query detail: %s", detail)
+func weeksAgoFunc(weeks int) func(time.Time) QueryDetails {
+	return func(now time.Time) QueryDetails {
+		return weeksAgo(now, weeks)
 	}
+}
+
+func monthsAgoFunc(months int) func(time.Time) QueryDetails {
+	return func(now time.Time) QueryDetails {
+		return monthsAgo(now, months)
+	}
+}
+
+func yearsAgoFunc(years int) func(time.Time) QueryDetails {
+	return func(now time.Time) QueryDetails {
+		return yearsAgo(now, years)
+	}
+}
+
+type singleModDetailParser struct {
+	id string
+	f  func(mod string, now time.Time) (QueryDetails, error)
+}
+
+func (p singleModDetailParser) numberModifiers() int {
+	return 1
+}
+
+func (p singleModDetailParser) identifier() string {
+	return p.id
+}
+
+func (p singleModDetailParser) parse(now time.Time, mods ...string) (QueryDetails, error) {
+	if len(mods) != 1 {
+		panic("Parser can only accept one modifier at a time")
+	}
+	return p.f(mods[0], now)
+}
+
+func getDate(mod string, _ time.Time) (QueryDetails, error) {
+	if isValidIsoDate(mod) {
+		return QueryDetails{QryDay, mod}, nil
+	}
+	return invalidDate(mod)
+}
+
+func getMonth(mod string, _ time.Time) (QueryDetails, error) {
+	if isValidYearMonth(mod) {
+		return QueryDetails{QryMonth, mod}, nil
+	}
+	return QueryDetails{}, fmt.Errorf("Not a valid year-month: %s", mod)
+}
+
+func getMonthsAgo(mod string, now time.Time) (QueryDetails, error) {
+	num, err := strconv.Atoi(mod)
+	if err != nil {
+		return QueryDetails{}, err
+	}
+	return monthsAgo(now, num), nil
+}
+
+func getYear(mod string, _ time.Time) (QueryDetails, error) {
+	year, err := strconv.Atoi(mod)
+	if err != nil {
+		return QueryDetails{}, err
+	}
+	return QueryDetails{QryYear, fmt.Sprint(year)}, nil
+}
+
+func getYearsAgo(mod string, now time.Time) (QueryDetails, error) {
+	num, err := strconv.Atoi(mod)
+	if err != nil {
+		return QueryDetails{}, err
+	}
+	return yearsAgo(now, num), nil
+}
+
+func getSince(mod string, now time.Time) (QueryDetails, error) {
+	if isValidIsoDate(mod) {
+		return QueryDetails{QryBetween, mod, isoDate(now)}, nil
+	}
+	return invalidDate(mod)
+}
+
+type betweenDetailParser struct{}
+
+func (p betweenDetailParser) identifier() string {
+	return prmBetween
+}
+
+func (p betweenDetailParser) numberModifiers() int {
+	return 2
+}
+
+func (p betweenDetailParser) parse(now time.Time, mods ...string) (QueryDetails, error) {
+	if len(mods) != 2 {
+		panic("Parser must be given two modifiers at a time")
+	}
+	d1 := mods[0]
+	d2 := mods[1]
+	if !isValidIsoDate(d1) {
+		return invalidDate(d1)
+	}
+	if !isValidIsoDate(d2) {
+		return invalidDate(d2)
+	}
+	return QueryDetails{QryBetween, d1, d2}, nil
+}
+
+func invalidDate(s string) (QueryDetails, error) {
+	return QueryDetails{}, fmt.Errorf("Not a valid date: %s", s)
 }
 
 // Whether to combine results for all tasks
 func shouldCombine(args []string) bool {
-	for _, arg := range args {
+	for i, arg := range args {
 		if arg == prmCombine {
+			args[i] = ""
 			return true
 		}
 	}
@@ -412,33 +519,6 @@ func getDates(s string) ([]string, bool) {
 		dates = append(dates, date)
 	}
 	return dates, true
-}
-
-// Takes a list of months as yyyy-MM and returns the first for each.
-func getMonths(s string) ([]QueryDetails, bool) {
-	months := strings.Split(s, ",")
-	var details []QueryDetails
-	for _, month := range months {
-		_, err := time.Parse("2006-01", month)
-		if err != nil {
-			return nil, false
-		}
-		details = append(details, QueryDetails{QryMonth, month})
-	}
-	return details, true
-}
-
-// Parse a comma-separated list of numbers.
-func getNumbers(s string) ([]int, bool) {
-	var numbers []int
-	for _, num := range strings.Split(s, ",") {
-		n, err := strconv.Atoi(num)
-		if err != nil {
-			return nil, false
-		}
-		numbers = append(numbers, n)
-	}
-	return numbers, true
 }
 
 // Whether the string describes an ISO formatted date yyyy-MM-dd.
