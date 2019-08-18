@@ -5,8 +5,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"github.com/freag/tilo/config"
-	"github.com/freag/tilo/msg"
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/msg"
 	_ "github.com/mattn/go-sqlite3"
 	"time"
 )

@@ -3,9 +3,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/freag/tilo/client"
-	"github.com/freag/tilo/config"
-	"github.com/freag/tilo/server"
+	"github.com/fgahr/tilo/client"
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/server"
 	"log"
 	"os"
 	"os/signal"

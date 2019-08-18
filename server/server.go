@@ -4,9 +4,9 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/freag/tilo/config"
-	"github.com/freag/tilo/msg"
-	"github.com/freag/tilo/server/db"
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/msg"
+	"github.com/fgahr/tilo/server/db"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net"

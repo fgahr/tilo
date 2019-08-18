@@ -2,9 +2,9 @@
 package client
 
 import (
-	"github.com/freag/tilo/config"
-	"github.com/freag/tilo/msg"
-	"github.com/freag/tilo/server"
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/msg"
+	"github.com/fgahr/tilo/server"
 	"encoding/json"
 	"fmt"
 	"net"
