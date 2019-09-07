@@ -3,16 +3,17 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	// "net/rpc"
 )
 
 type Server struct {
@@ -30,7 +31,7 @@ type Server struct {
 func Run(params *config.Params) error {
 	s := newServer(params)
 	if err := s.init(); err != nil {
-		return err
+		return errors.Wrap(err, "Failed to initialize server")
 	}
 	s.main()
 	return nil
@@ -46,7 +47,7 @@ func IsRunning(params *config.Params) (bool, error) {
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "Could not determine server status")
 	}
 	return true, nil
 }
@@ -64,7 +65,7 @@ func (s *Server) init() error {
 	}
 
 	if running {
-		return fmt.Errorf("Cannot start server: Already running.")
+		return errors.New("Cannot start server: Already running.")
 	}
 
 	// Create directories if necessary
@@ -99,7 +100,7 @@ func (s *Server) init() error {
 	s.backend = backend
 
 	// Shutdown channel needs to be buffered to avoid deadlock.
-	// NOTE: To support proper concurrent server operation, buffer size needs
+	// FIXME: To support proper concurrent server operation, buffer size needs
 	// to match concurrent thread count. This is not an issue yet.
 	s.shutdownChan = make(chan struct{}, 1)
 
@@ -111,7 +112,7 @@ func (s *Server) main() {
 	// Ensure clean shutdown if at all possible.
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("Encountered panic in server.main()", r)
+			log.Println("Encountered panic in Server.main()", r)
 		}
 		s.shutdown()
 	}()
@@ -201,7 +202,7 @@ func (s *Server) handleRequest(req msg.Request) msg.Response {
 		_, err = s.stopTimer()
 		response = msg.ShutdownResponse(lastActive, err)
 	default:
-		err = fmt.Errorf("Not implemented: %s", req.Cmd)
+		err = errors.Errorf("Not implemented: %s", req.Cmd)
 	}
 
 	if err != nil {
@@ -220,7 +221,7 @@ func (s *Server) startTimer(taskName string) (msg.Response, error) {
 	if oldTask != nil {
 		_, err := s.stopTimer()
 		if err != nil {
-			return msg.Response{}, err
+			return msg.Response{}, errors.Wrap(err, "Stopping previous timer failed")
 		}
 	}
 	s.activeTask = msg.NewTask(taskName)
@@ -230,7 +231,7 @@ func (s *Server) startTimer(taskName string) (msg.Response, error) {
 // Stop the current timer, respond its details.
 func (s *Server) stopTimer() (msg.Response, error) {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No active task")), nil
+		return msg.ErrorResponse(errors.New("No active task")), nil
 	}
 	s.activeTask.Stop()
 	err := s.backend.Save(s.activeTask)
@@ -242,7 +243,7 @@ func (s *Server) stopTimer() (msg.Response, error) {
 // Respond about the currently active task.
 func (s *Server) currentTask() msg.Response {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No active task"))
+		return msg.ErrorResponse(errors.New("No active task"))
 	}
 	return msg.CurrentTaskResponse(s.activeTask)
 }
@@ -251,7 +252,7 @@ func (s *Server) currentTask() msg.Response {
 // its details.
 func (s *Server) abortCurrentTask() msg.Response {
 	if s.activeTask == nil {
-		return msg.ErrorResponse(fmt.Errorf("No active task"))
+		return msg.ErrorResponse(errors.New("No active task"))
 	}
 	s.activeTask.Stop()
 	aborted := s.activeTask
@@ -324,7 +325,7 @@ func StartInBackground(params *config.Params) error {
 	// Prepare high-level process attributes
 	err := ensureDirExists(params.ConfDir)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
 		Dir:   params.ConfDir,
@@ -336,11 +337,11 @@ func StartInBackground(params *config.Params) error {
 	// No need to keep track of the spawned process
 	executable, err := os.Executable()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Unable to start server in background")
 	}
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Unable to start server in background")
 	}
 	log.Printf("Server started in background process: PID %d\n", proc.Pid)
 	return nil

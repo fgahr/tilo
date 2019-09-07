@@ -2,7 +2,7 @@
 package msg
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 )
@@ -121,7 +121,7 @@ func stopWithTag(tag string, task *Task) Response {
 // The error encapsulated in the response, if any.
 func (r Response) Err() error {
 	if r.Status == RespError {
-		return fmt.Errorf("%s", r.Body[0][0])
+		return errors.Errorf("%s", r.Body[0][0])
 	}
 	return nil
 }

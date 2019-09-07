@@ -3,6 +3,7 @@ package msg
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"strconv"
@@ -102,7 +103,7 @@ func ParseRequest(args []string, now time.Time) (Request, error) {
 			return p.handleArgs(args[1:], now)
 		}
 	}
-	return Request{}, fmt.Errorf("Unknown command: %s", args[0])
+	return Request{}, errors.Errorf("Unknown command: %s", args[0])
 }
 
 type cmdOnlyParser struct {
@@ -131,7 +132,7 @@ func (p startParser) identifier() string {
 func (p startParser) handleArgs(args []string, now time.Time) (Request, error) {
 	if len(args) < 1 {
 		return Request{},
-			fmt.Errorf("Missing task name for 'start'.")
+			errors.New("Missing task name for 'start'.")
 	}
 
 	warnIgnoredArguments(args[1:], p.errout)
@@ -141,7 +142,7 @@ func (p startParser) handleArgs(args []string, now time.Time) (Request, error) {
 		return Request{}, err
 	} else if len(tasks) > 1 {
 		return Request{},
-			fmt.Errorf("Can only start one task at a time. Given: %v", tasks)
+			errors.Errorf("Can only start one task at a time. Given: %v", tasks)
 	}
 	return Request{Cmd: CmdStart, Tasks: tasks}, nil
 }
@@ -158,7 +159,7 @@ func (p queryParser) identifier() string {
 func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
 	if len(args) == 0 {
 		return Request{},
-			fmt.Errorf("Missing arguments for query request.")
+			errors.New("Missing arguments for query request.")
 	}
 
 	tasks, err := getTaskNames(args[0])
@@ -190,7 +191,7 @@ func getTaskNames(taskField string) ([]string, error) {
 	tasks := strings.Split(taskField, ",")
 	for _, task := range tasks {
 		if !validTaskName(task) {
-			return nil, fmt.Errorf("Invalid task name: %s", task)
+			return nil, errors.Errorf("Invalid task name: %s", task)
 		}
 	}
 	return tasks, nil
@@ -252,14 +253,14 @@ func getQueryArgs(args []string, now time.Time) ([]QueryDetails, error) {
 		arg := strings.Split(args[i], "=")[0]
 		p := findParser(arg)
 		if p == nil {
-			return details, fmt.Errorf("No parser found for argument: %s", arg)
+			return details, errors.Errorf("No parser found for argument: %s", arg)
 		}
 
 		if p.numberModifiers() > 0 {
 			modifiers := getModifiers(&i, args)
 			for len(modifiers) > 0 {
 				if len(modifiers) < p.numberModifiers() {
-					return details, fmt.Errorf("Unbalanced modifiers: %s", args[i])
+					return details, errors.Errorf("Unbalanced modifiers: %s", args[i])
 				}
 				d, err := p.parse(now, modifiers[0:p.numberModifiers()]...)
 				if err != nil {
@@ -374,7 +375,7 @@ func getMonth(mod string, _ time.Time) (QueryDetails, error) {
 	if isValidYearMonth(mod) {
 		return QueryDetails{QryMonth, mod}, nil
 	}
-	return QueryDetails{}, fmt.Errorf("Not a valid year-month: %s", mod)
+	return QueryDetails{}, errors.Errorf("Not a valid year-month: %s", mod)
 }
 
 func getMonthsAgo(mod string, now time.Time) (QueryDetails, error) {
@@ -434,7 +435,7 @@ func (p betweenDetailParser) parse(now time.Time, mods ...string) (QueryDetails,
 }
 
 func invalidDate(s string) (QueryDetails, error) {
-	return QueryDetails{}, fmt.Errorf("Not a valid date: %s", s)
+	return QueryDetails{}, errors.Errorf("Not a valid date: %s", s)
 }
 
 // Whether to combine results for all tasks

@@ -8,6 +8,7 @@ import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 	"time"
 )
 
@@ -61,7 +62,7 @@ func (b *Backend) Save(task *msg.Task) error {
 // Query the database based on the given query details.
 func (b *Backend) Query(taskName string, details msg.QueryDetails) ([]msg.Summary, error) {
 	if len(details) < 2 {
-		return nil, fmt.Errorf("Invalid query details: %v", details)
+		return nil, errors.Errorf("Invalid query details: %v", details)
 	}
 
 	var sum []msg.Summary
@@ -76,7 +77,7 @@ func (b *Backend) Query(taskName string, details msg.QueryDetails) ([]msg.Summar
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryBetween:
 		if len(details) < 3 {
-			return nil, fmt.Errorf("Invalid query details: %v", details)
+			return nil, errors.Errorf("Invalid query details: %v", details)
 		}
 		start, err := time.Parse("2006-01-02", details[1])
 		if err != nil {

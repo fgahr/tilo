@@ -2,15 +2,16 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	"encoding/json"
-	"fmt"
+	"github.com/pkg/errors"
 	"net"
-	"time"
-	"text/tabwriter"
 	"os"
+	"text/tabwriter"
+	"time"
 )
 
 // A struct holding a connection to the server and performing communication
@@ -50,7 +51,7 @@ func (c *Client) HandleArgs(args []string) error {
 // Close the client's connection to the server.
 func (c *Client) Close() error {
 	if c.conn == nil {
-		return fmt.Errorf("Client is not connected.")
+		return errors.New("Client is not connected.")
 	}
 	return c.conn.Close()
 }
@@ -103,7 +104,7 @@ func (c *Client) sendRequestToServer(req msg.Request) error {
 	}
 
 	if !running {
-		return fmt.Errorf("Server seems to be down.")
+		return errors.New("Server seems to be down.")
 	}
 
 	err = c.connectToServer()
@@ -118,7 +119,7 @@ func (c *Client) sendRequestToServer(req msg.Request) error {
 // Wait for a response from the server.
 func (c *Client) awaitResponse() (msg.Response, error) {
 	if c.conn == nil {
-		err := fmt.Errorf("Not connected to server.")
+		err := errors.New("Not connected to server.")
 		return msg.Response{}, err
 	}
 
@@ -187,7 +188,7 @@ func (c *Client) ensureServerIsRunning() error {
 			return nil
 		case <-time.After(5 * time.Second):
 			close(notifyChan)
-			return fmt.Errorf("Timeout exceeded trying to bring up server.")
+			return errors.New("Timeout exceeded trying to bring up server.")
 		}
 	}
 	return nil
