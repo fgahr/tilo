@@ -87,9 +87,6 @@ func (s *Server) init() error {
 	s.listener = listener
 
 	// Establish database connection.
-	// FIXME: Passing a database file breaks the abstraction. Likely the entire
-	// config will have to be passed at some point to support a more flexible
-	// backend.
 	backend := db.NewBackend(s.Conf)
 	err = backend.Init()
 	if err != nil {

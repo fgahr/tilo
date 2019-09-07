@@ -1,4 +1,4 @@
-// Package determines whether to drive the application in client or server mode.
+// A simple time logging program.
 package main
 
 import (
