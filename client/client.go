@@ -2,7 +2,6 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
@@ -12,6 +11,7 @@ import (
 	"os"
 	"text/tabwriter"
 	"time"
+	"net/rpc/jsonrpc"
 )
 
 // A struct holding a connection to the server and performing communication
@@ -58,75 +58,22 @@ func (c *Client) Close() error {
 
 // Perform a request-response-cycle, evaluating the server response to the request.
 func (c *Client) performRequest(req msg.Request) error {
-	var err error
-	err = c.connectToServer()
+	rpcClient, err := jsonrpc.Dial("unix", c.Conf.Socket())
 	if err != nil {
 		return err
 	}
-
-	err = c.sendRequestToServer(req)
-	if err != nil {
-		return err
-	}
-
-	resp, err := c.awaitResponse()
+	var resp msg.Response
+	err = rpcClient.Call("RequestHandler.HandleRequest", req, &resp)
 	if err != nil {
 		return err
 	}
 
 	err = resp.Err()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Error while processing request")
 	} else {
 		return c.printResponse(resp)
 	}
-}
-
-// Connect the client to a running server.
-func (c *Client) connectToServer() error {
-	if c.conn != nil {
-		return nil
-	}
-
-	conn, err := net.Dial("unix", c.Conf.Socket())
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	return nil
-}
-
-// Send a request to the server.
-func (c *Client) sendRequestToServer(req msg.Request) error {
-	running, err := server.IsRunning(c.Conf)
-	if err != nil {
-		return err
-	}
-
-	if !running {
-		return errors.New("Server seems to be down.")
-	}
-
-	err = c.connectToServer()
-	if err != nil {
-		return err
-	}
-
-	encoder := json.NewEncoder(c.conn)
-	return encoder.Encode(req)
-}
-
-// Wait for a response from the server.
-func (c *Client) awaitResponse() (msg.Response, error) {
-	if c.conn == nil {
-		err := errors.New("Not connected to server.")
-		return msg.Response{}, err
-	}
-
-	decoder := json.NewDecoder(c.conn)
-	var resp msg.Response
-	err := decoder.Decode(&resp)
-	return resp, err
 }
 
 // Print a response as formatted output.

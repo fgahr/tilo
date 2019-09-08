@@ -18,12 +18,14 @@ type Backend struct {
 }
 
 // Create a new backend based on conf.
-func NewBackend(conf *config.Params) *Backend {
-	return &Backend{conf: conf}
+func NewBackend(conf *config.Params) (*Backend, error) {
+	backend := new(Backend)
+	backend.conf = conf
+	return backend, backend.init()
 }
 
 // Initialize the backend, setting up the database connection.
-func (b *Backend) Init() error {
+func (b *Backend) init() error {
 	db, err := sql.Open("sqlite3", b.conf.DBFile())
 	if err != nil {
 		return errors.Wrap(err, "Unable to establish database connection")
@@ -61,43 +63,43 @@ func (b *Backend) Save(task *msg.Task) error {
 }
 
 // Query the database based on the given query details.
-func (b *Backend) Query(taskName string, details msg.QueryDetails) ([]msg.Summary, error) {
-	if len(details) < 2 {
-		return nil, errors.Errorf("Invalid query details: %v", details)
+func (b *Backend) Query(taskName string, detail msg.QueryDetails) ([]msg.Summary, error) {
+	if len(detail) < 2 {
+		return nil, errors.Errorf("Invalid query details: %v", detail)
 	}
 
 	var sum []msg.Summary
 	var err error
-	switch details[0] {
+	switch detail[0] {
 	case msg.QryDay:
-		start, err := time.Parse("2006-01-02", details[1])
+		start, err := time.Parse("2006-01-02", detail[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 0, 1)
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryBetween:
-		if len(details) < 3 {
-			return nil, errors.Errorf("Invalid query details: %v", details)
+		if len(detail) < 3 {
+			return nil, errors.Errorf("Invalid query details: %v", detail)
 		}
-		start, err := time.Parse("2006-01-02", details[1])
+		start, err := time.Parse("2006-01-02", detail[1])
 		if err != nil {
 			return nil, err
 		}
-		end, err := time.Parse("2006-01-02", details[2])
+		end, err := time.Parse("2006-01-02", detail[2])
 		if err != nil {
 			return nil, err
 		}
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryMonth:
-		start, err := time.Parse("2006-01", details[1])
+		start, err := time.Parse("2006-01", detail[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 1, 0)
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryYear:
-		start, err := time.Parse("2006", details[1])
+		start, err := time.Parse("2006", detail[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
@@ -110,7 +112,7 @@ func (b *Backend) Query(taskName string, details msg.QueryDetails) ([]msg.Summar
 
 	// Setting the details allows to give better output.
 	for i, _ := range sum {
-		sum[i].Details = details
+		sum[i].Details = detail
 	}
 	return sum, nil
 }

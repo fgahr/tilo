@@ -92,7 +92,7 @@ func ParseRequest(args []string, now time.Time) (Request, error) {
 		cmdOnlyParser{argStop, CmdStop, os.Stderr},
 		cmdOnlyParser{argCurrent, CmdCurrent, os.Stderr},
 		cmdOnlyParser{argAbort, CmdAbort, os.Stderr},
-		cmdOnlyParser{argStop, CmdShutdown, os.Stderr},
+		cmdOnlyParser{argShutdown, CmdShutdown, os.Stderr},
 		startParser{os.Stderr},
 		queryParser{os.Stderr},
 	}
