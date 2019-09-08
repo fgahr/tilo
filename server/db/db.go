@@ -1,5 +1,8 @@
 // Package db contains all relevant database queries.
-// TODO: Table description
+//
+// Each record has two timestamps, "started" and "ended". They are saved as
+// Unix time stamps because some arithmetic is performed on them which is
+// cumbersome when storing timestamps as strings.
 package db
 
 import (
@@ -122,7 +125,8 @@ func (b *Backend) queryTaskBetween(task string, start time.Time, end time.Time) 
 	if task == msg.TskAllTasks {
 		return b.queryAllTasksBetween(start, end)
 	}
-
+	// FIXME: total is a non-standard function present in SQLite. Making it
+	// work with sum() seems preferable. NULL-behaviour needs to be tested.
 	rows, err := b.db.Query(`
 SELECT total(ended - started), min(started), max(ended) FROM task
 WHERE name = ?

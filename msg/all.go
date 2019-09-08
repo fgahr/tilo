@@ -164,12 +164,12 @@ func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
 
 	tasks, err := getTaskNames(args[0])
 	if err != nil {
-		return Request{}, err
+		return Request{}, errors.Wrap(err, "Unable to determine task names")
 	}
 
 	details, err := getQueryArgs(args[1:], now)
 	if err != nil {
-		return Request{}, err
+		return Request{}, errors.Wrap(err, "Unable to determine query arguments")
 	}
 
 	request := Request{
