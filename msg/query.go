@@ -14,25 +14,25 @@ const (
 	// Special "task" meaning show info for all tasks
 	TskAllTasks = "--all"
 	// Flags and params -- no modifiers
-	prmToday     = "--today"
-	prmYesterday = "--yesterday"
-	prmEver      = "--ever"
-	prmCombine   = "--combine" // Whether to combine times for all given tasks
+	PrmToday     = "--today"
+	PrmYesterday = "--yesterday"
+	PrmEver      = "--ever"
+	PrmCombine   = "--combine" // Whether to combine times for all given tasks
 	// Flags and params -- modifiers required
-	prmDate      = "--day"
-	prmMonth     = "--month"
-	prmYear      = "--year"
-	prmWeeksAgo  = "--weeks-ago"
-	prmMonthsAgo = "--months-ago"
-	prmYearsAgo  = "--years-ago"
-	prmThisWeek  = "--this-week"
-	prmLastWeek  = "--last-week"
-	prmThisMonth = "--this-month"
-	prmLastMonth = "--last-month"
-	prmThisYear  = "--this-year"
-	prmLastYear  = "--last-year"
-	prmSince     = "--since"
-	prmBetween   = "--between"
+	PrmDate      = "--day"
+	PrmMonth     = "--month"
+	PrmYear      = "--year"
+	PrmWeeksAgo  = "--weeks-ago"
+	PrmMonthsAgo = "--months-ago"
+	PrmYearsAgo  = "--years-ago"
+	PrmThisWeek  = "--this-week"
+	PrmLastWeek  = "--last-week"
+	PrmThisMonth = "--this-month"
+	PrmLastMonth = "--last-month"
+	PrmThisYear  = "--this-year"
+	PrmLastYear  = "--last-year"
+	PrmSince     = "--since"
+	PrmBetween   = "--between"
 	// Query details -- static
 	QryDay   = "day"
 	QryMonth = "month"
@@ -46,7 +46,7 @@ type queryParser struct {
 }
 
 func (p queryParser) identifier() string {
-	return argQuery
+	return ArgQuery
 }
 
 // Parse args for a query request.
@@ -114,20 +114,20 @@ type detailParser interface {
 
 func getDetailParsers() []detailParser {
 	return []detailParser{
-		noModDetailParser{id: prmToday, f: daysAgoFunc(0)},
-		noModDetailParser{id: prmYesterday, f: daysAgoFunc(1)},
-		noModDetailParser{id: prmThisWeek, f: weeksAgoFunc(0)},
-		noModDetailParser{id: prmLastWeek, f: weeksAgoFunc(1)},
-		noModDetailParser{id: prmThisMonth, f: monthsAgoFunc(0)},
-		noModDetailParser{id: prmLastMonth, f: monthsAgoFunc(1)},
-		noModDetailParser{id: prmThisYear, f: yearsAgoFunc(0)},
-		noModDetailParser{id: prmLastYear, f: yearsAgoFunc(1)},
-		singleModDetailParser{id: prmDate, f: getDate},
-		singleModDetailParser{id: prmMonth, f: getMonth},
-		singleModDetailParser{id: prmMonthsAgo, f: getMonthsAgo},
-		singleModDetailParser{id: prmYear, f: getYear},
-		singleModDetailParser{id: prmYearsAgo, f: getYearsAgo},
-		singleModDetailParser{id: prmSince, f: getSince},
+		noModDetailParser{id: PrmToday, f: daysAgoFunc(0)},
+		noModDetailParser{id: PrmYesterday, f: daysAgoFunc(1)},
+		noModDetailParser{id: PrmThisWeek, f: weeksAgoFunc(0)},
+		noModDetailParser{id: PrmLastWeek, f: weeksAgoFunc(1)},
+		noModDetailParser{id: PrmThisMonth, f: monthsAgoFunc(0)},
+		noModDetailParser{id: PrmLastMonth, f: monthsAgoFunc(1)},
+		noModDetailParser{id: PrmThisYear, f: yearsAgoFunc(0)},
+		noModDetailParser{id: PrmLastYear, f: yearsAgoFunc(1)},
+		singleModDetailParser{id: PrmDate, f: getDate},
+		singleModDetailParser{id: PrmMonth, f: getMonth},
+		singleModDetailParser{id: PrmMonthsAgo, f: getMonthsAgo},
+		singleModDetailParser{id: PrmYear, f: getYear},
+		singleModDetailParser{id: PrmYearsAgo, f: getYearsAgo},
+		singleModDetailParser{id: PrmSince, f: getSince},
 		betweenDetailParser{},
 	}
 }
@@ -306,7 +306,7 @@ func getSince(mod string, now time.Time) (QueryDetails, error) {
 type betweenDetailParser struct{}
 
 func (p betweenDetailParser) identifier() string {
-	return prmBetween
+	return PrmBetween
 }
 
 func (p betweenDetailParser) numberModifiers() int {
@@ -335,7 +335,7 @@ func invalidDate(s string) (QueryDetails, error) {
 // Whether to combine results for all tasks
 func shouldCombine(args []string) bool {
 	for i, arg := range args {
-		if arg == prmCombine {
+		if arg == PrmCombine {
 			args[i] = ""
 			return true
 		}

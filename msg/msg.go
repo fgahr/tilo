@@ -13,12 +13,12 @@ const (
 	// Possible command arguments.
 	// NOTE: They are conceivably different from request commands and therefore
 	// defined separately, although identical.
-	argStart    = "start"
-	argStop     = "stop"
-	argCurrent  = "current"
-	argAbort    = "abort"
-	argQuery    = "query"
-	argShutdown = "shutdown"
+	ArgStart    = "start"
+	ArgStop     = "stop"
+	ArgCurrent  = "current"
+	ArgAbort    = "abort"
+	ArgQuery    = "query"
+	ArgShutdown = "shutdown"
 )
 
 type QueryDetails []string

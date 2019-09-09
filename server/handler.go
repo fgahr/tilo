@@ -25,13 +25,13 @@ func (h *RequestHandler) close() error {
 }
 
 // FIXME: The request will be logged twice in several situations
-func (h *RequestHandler)logRequest(req msg.Request) {
+func (h *RequestHandler) logRequest(req msg.Request) {
 	if h.Conf.DebugLevel >= config.DebugSome {
 		log.Printf("Processing request: %v\n", req)
 	}
 }
 
-func (h *RequestHandler)logResponse(resp *msg.Response) {
+func (h *RequestHandler) logResponse(resp *msg.Response) {
 	if h.Conf.DebugLevel >= config.DebugAll {
 		log.Printf("Returning response: %v\n", *resp)
 	}

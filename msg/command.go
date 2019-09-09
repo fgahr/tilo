@@ -4,8 +4,8 @@ package msg
 import (
 	"github.com/pkg/errors"
 	"io"
-	"time"
 	"os"
+	"time"
 )
 
 const (
@@ -35,19 +35,19 @@ func (p cmdOnlyParser) handleArgs(args []string, now time.Time) (string, Request
 }
 
 func stopParser() argParser {
-	return cmdOnlyParser{"RequestHandler.StopCurrentTask", argStop, CmdStop, os.Stderr}
+	return cmdOnlyParser{"RequestHandler.StopCurrentTask", ArgStop, CmdStop, os.Stderr}
 }
 
 func currentTaskParser() argParser {
-	return cmdOnlyParser{"RequestHandler.GetCurrentTask", argCurrent, CmdCurrent, os.Stderr}
+	return cmdOnlyParser{"RequestHandler.GetCurrentTask", ArgCurrent, CmdCurrent, os.Stderr}
 }
 
 func abortTaskParser() argParser {
-	return cmdOnlyParser{"RequestHandler.AbortCurrentTask", argAbort, CmdAbort, os.Stderr}
+	return cmdOnlyParser{"RequestHandler.AbortCurrentTask", ArgAbort, CmdAbort, os.Stderr}
 }
 
 func shutdownParser() argParser {
-	return cmdOnlyParser{"RequestHandler.ShutdownServer", argShutdown, CmdShutdown, os.Stderr}
+	return cmdOnlyParser{"RequestHandler.ShutdownServer", ArgShutdown, CmdShutdown, os.Stderr}
 }
 
 type startParser struct {
@@ -55,7 +55,7 @@ type startParser struct {
 }
 
 func (p startParser) identifier() string {
-	return argStart
+	return ArgStart
 }
 
 func (p startParser) handleArgs(args []string, now time.Time) (string, Request, error) {
