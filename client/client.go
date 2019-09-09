@@ -8,18 +8,21 @@ import (
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
 	"net"
+	"net/rpc"
+	"net/rpc/jsonrpc"
 	"os"
 	"text/tabwriter"
 	"time"
-	"net/rpc/jsonrpc"
 )
 
 // A struct holding a connection to the server and performing communication
 // with it.
 type Client struct {
-	conn           net.Conn
-	requestTimeout time.Duration
-	Conf           *config.Params
+	conn           net.Conn       // Connection to the communication socket
+	requestTimeout time.Duration  // Timeout for requests
+	Conf           *config.Params // Configuration for this process
+	rpcClient      *rpc.Client    // RPC Client to call server-side functions
+	err            error          // Any error that may have occured
 }
 
 // Create a new client to communicate with the server.
@@ -39,12 +42,12 @@ func (c *Client) HandleArgs(args []string) error {
 		return err
 	}
 
-	request, err := msg.ParseRequest(args, time.Now())
+	fnName, request, err := msg.ParseRequest(args, time.Now())
 	if err != nil {
 		return err
 	}
 
-	err = c.performRequest(request)
+	err = c.performRequest(fnName, request)
 	return err
 }
 
@@ -53,24 +56,38 @@ func (c *Client) Close() error {
 	if c.conn == nil {
 		return errors.New("Client is not connected.")
 	}
-	return c.conn.Close()
-}
-
-// Perform a request-response-cycle, evaluating the server response to the request.
-func (c *Client) performRequest(req msg.Request) error {
-	rpcClient, err := jsonrpc.Dial("unix", c.Conf.Socket())
+	err := c.conn.Close()
 	if err != nil {
 		return err
 	}
-	var resp msg.Response
-	err = rpcClient.Call("RequestHandler.HandleRequest", req, &resp)
+	return c.err
+}
+
+// Establish a server connection.
+func (c *Client) connectToServer() {
+	if c.err != nil {
+		return
+	}
+	rpcClient, err := jsonrpc.Dial("unix", c.Conf.Socket())
 	if err != nil {
-		return err
+		c.err = err
+	}
+	c.rpcClient = rpcClient
+}
+
+// Perform a request-response-cycle, evaluating the server response to the request.
+func (c *Client) performRequest(fnName string, req msg.Request) error {
+	c.connectToServer()
+	var resp msg.Response
+	err := c.rpcClient.Call(fnName, req, &resp)
+	if err != nil {
+		return errors.Wrapf(
+			err, "Unable to call remote procedure %s for request %v", fnName, req)
 	}
 
 	err = resp.Err()
 	if err != nil {
-		return errors.Wrap(err, "Error while processing request")
+		return err
 	} else {
 		return c.printResponse(resp)
 	}

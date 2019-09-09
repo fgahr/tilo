@@ -2,34 +2,17 @@
 package msg
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
 )
 
 const (
-	// Possible command arguments.
-	// NOTE: They are conceivably different from request commands and therefore
-	// defined separately, although identical.
-	argStart    = "start"
-	argStop     = "stop"
-	argCurrent  = "current"
-	argAbort    = "abort"
-	argQuery    = "query"
-	argShutdown = "shutdown"
 	// Special "task" meaning show info for all tasks
 	TskAllTasks = "--all"
-	// Types of command for the requests
-	CmdStart    = "start"
-	CmdStop     = "stop"
-	CmdCurrent  = "current"
-	CmdAbort    = "abort"
-	CmdQuery    = "query"
-	CmdShutdown = "shutdown"
 	// Flags and params -- no modifiers
 	prmToday     = "--today"
 	prmYesterday = "--yesterday"
@@ -58,95 +41,6 @@ const (
 	QryBetween = "between"
 )
 
-type QueryDetails []string
-
-// Request, to be sent to the server.
-// NOTE: Renaming pending as soon as the old struct is removed.
-type Request struct {
-	Cmd       string
-	Tasks     []string
-	QueryArgs []QueryDetails
-	Combine   bool
-}
-
-// A request for the server to shut down.
-func ShutdownRequest() Request {
-	return Request{Cmd: CmdShutdown}
-}
-
-type argParser interface {
-	identifier() string
-	handleArgs(args []string, now time.Time) (Request, error)
-}
-
-// Create a request based on command line parameters and the current time.
-// This function contains the main command language logic.
-// Note that passing the time here is necessary to avoid inconsistencies when
-// encountering a date change around midnight. As a side note, it also
-// simplifies testing.
-func ParseRequest(args []string, now time.Time) (Request, error) {
-	if len(args) == 0 {
-		panic("Empty argument list passed from main.")
-	}
-	parsers := []argParser{
-		cmdOnlyParser{argStop, CmdStop, os.Stderr},
-		cmdOnlyParser{argCurrent, CmdCurrent, os.Stderr},
-		cmdOnlyParser{argAbort, CmdAbort, os.Stderr},
-		cmdOnlyParser{argShutdown, CmdShutdown, os.Stderr},
-		startParser{os.Stderr},
-		queryParser{os.Stderr},
-	}
-
-	cliCmd := args[0]
-	for _, p := range parsers {
-		if cliCmd == p.identifier() {
-			return p.handleArgs(args[1:], now)
-		}
-	}
-	return Request{}, errors.Errorf("Unknown command: %s", args[0])
-}
-
-type cmdOnlyParser struct {
-	cliCmd string
-	reqCmd string
-	errout io.Writer
-}
-
-func (p cmdOnlyParser) identifier() string {
-	return p.cliCmd
-}
-
-func (p cmdOnlyParser) handleArgs(args []string, now time.Time) (Request, error) {
-	warnIgnoredArguments(args, p.errout)
-	return Request{Cmd: p.reqCmd}, nil
-}
-
-type startParser struct {
-	errout io.Writer
-}
-
-func (p startParser) identifier() string {
-	return argStart
-}
-
-func (p startParser) handleArgs(args []string, now time.Time) (Request, error) {
-	if len(args) < 1 {
-		return Request{},
-			errors.New("Missing task name for 'start'.")
-	}
-
-	warnIgnoredArguments(args[1:], p.errout)
-
-	tasks, err := getTaskNames(args[0])
-	if err != nil {
-		return Request{}, err
-	} else if len(tasks) > 1 {
-		return Request{},
-			errors.Errorf("Can only start one task at a time. Given: %v", tasks)
-	}
-	return Request{Cmd: CmdStart, Tasks: tasks}, nil
-}
-
 type queryParser struct {
 	errout io.Writer
 }
@@ -156,20 +50,20 @@ func (p queryParser) identifier() string {
 }
 
 // Parse args for a query request.
-func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
+func (p queryParser) handleArgs(args []string, now time.Time) (string, Request, error) {
 	if len(args) == 0 {
-		return Request{},
+		return "", Request{},
 			errors.New("Missing arguments for query request.")
 	}
 
 	tasks, err := getTaskNames(args[0])
 	if err != nil {
-		return Request{}, errors.Wrap(err, "Unable to determine task names")
+		return "", Request{}, errors.Wrap(err, "Unable to determine task names")
 	}
 
 	details, err := getQueryArgs(args[1:], now)
 	if err != nil {
-		return Request{}, errors.Wrap(err, "Unable to determine query arguments")
+		return "", Request{}, errors.Wrap(err, "Unable to determine query arguments")
 	}
 
 	request := Request{
@@ -179,7 +73,7 @@ func (p queryParser) handleArgs(args []string, now time.Time) (Request, error) {
 		Combine:   shouldCombine(args),
 	}
 
-	return request, nil
+	return "RequestHandler.Query", request, nil
 }
 
 // Split task names given as a comma-separated field, check for validity.
@@ -447,13 +341,6 @@ func shouldCombine(args []string) bool {
 		}
 	}
 	return false
-}
-
-// If args are given, a warning is emitted that they will be ignored.
-func warnIgnoredArguments(args []string, out io.Writer) {
-	if len(args) > 0 {
-		fmt.Fprintf(out, "Extra arguments ignored: %v", args)
-	}
 }
 
 // Detail describing a a date a number of days ago.

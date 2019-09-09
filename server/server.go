@@ -28,13 +28,6 @@ type Server struct {
 	listener     net.Listener    // Listener for the client request socket
 }
 
-type RequestHandler struct {
-	server       *Server        // The server to which this handler is attached
-	activeTask   *msg.Task      // The currently active task, if any
-	backend      *db.Backend    // Database connection
-	Conf         *config.Params // Configuration parameters for this instance
-}
-
 func Run(params *config.Params) error {
 	s := newServer(params)
 	if err := s.init(); err != nil {
@@ -175,113 +168,6 @@ func (s *Server) serveConnection(conn net.Conn) {
 	s.rpcEndpoint.ServeCodec(codec)
 }
 
-// Close the request handler, shutting down the backend.
-func (h *RequestHandler) close() error {
-	return h.backend.Close()
-}
-
-// Process the given request, producing a response accordingly.
-func (h *RequestHandler) HandleRequest(req msg.Request, resp *msg.Response) error {
-	if h.Conf.DebugLevel >= config.DebugSome {
-		log.Printf("Processing request: %v\n", req)
-	}
-	var response msg.Response
-	var err error = nil
-	switch req.Cmd {
-	case msg.CmdStart:
-		response, err = h.startTimer(req.Tasks[0])
-	case msg.CmdStop:
-		response, err = h.stopTimer()
-	case msg.CmdCurrent:
-		response = h.currentTask()
-	case msg.CmdAbort:
-		response = h.abortCurrentTask()
-	case msg.CmdQuery:
-		response, err = h.evaluateQuery(req)
-	case msg.CmdShutdown:
-		// This causes the main loop to exit at the next iteration.
-		// Note that the channel needs to be buffered to avoid deadlocking here.
-		h.server.shutdownChan <- struct{}{}
-		lastActive := h.activeTask
-		_, err = h.stopTimer()
-		response = msg.ShutdownResponse(lastActive, err)
-	default:
-		err = errors.Errorf("Not implemented: %s", req.Cmd)
-	}
-
-	if err != nil {
-		log.Println(err)
-		response = msg.ErrorResponse(err)
-	}
-	if h.Conf.DebugLevel >= config.DebugAll {
-		log.Printf("Returning response: %v\n", response)
-	}
-	*resp = response
-	return nil
-}
-
-// Start a timer for the given arguments, respond its details.
-func (h *RequestHandler) startTimer(taskName string) (msg.Response, error) {
-	oldTask := h.activeTask
-	if oldTask != nil {
-		_, err := h.stopTimer()
-		if err != nil {
-			return msg.Response{}, errors.Wrap(err, "Stopping previous timer failed")
-		}
-	}
-	h.activeTask = msg.NewTask(taskName)
-	return msg.StartTaskResponse(h.activeTask, oldTask), nil
-}
-
-// Stop the current timer, respond its details.
-func (h *RequestHandler) stopTimer() (msg.Response, error) {
-	if h.activeTask == nil {
-		return msg.ErrorResponse(errors.New("No active task")), nil
-	}
-	h.activeTask.Stop()
-	err := h.backend.Save(h.activeTask)
-	response := msg.StoppedTaskResponse(h.activeTask)
-	h.activeTask = nil
-	return response, err
-}
-
-// Respond about the currently active task.
-func (h *RequestHandler) currentTask() msg.Response {
-	if h.activeTask == nil {
-		return msg.ErrorResponse(errors.New("No active task"))
-	}
-	return msg.CurrentTaskResponse(h.activeTask)
-}
-
-// Abort the currently active task without saving it to the backend. Respond
-// its details.
-func (h *RequestHandler) abortCurrentTask() msg.Response {
-	if h.activeTask == nil {
-		return msg.ErrorResponse(errors.New("No active task"))
-	}
-	h.activeTask.Stop()
-	aborted := h.activeTask
-	h.activeTask = nil
-	return msg.AbortedTaskResponse(aborted)
-}
-
-// Gather a query response from the database.
-func (h *RequestHandler) evaluateQuery(req msg.Request) (msg.Response, error) {
-	summaries := make([]msg.Summary, 4)
-	for _, detail := range req.QueryArgs {
-		for _, task := range req.Tasks {
-			newSummaries, err := h.backend.Query(task, detail)
-			if err != nil {
-				return msg.Response{},
-					errors.Wrapf(err, "backend.Query failed for task %s with detail %v",
-						task, detail)
-			}
-			summaries = append(summaries, newSummaries...)
-		}
-	}
-	return msg.QueryResponse(summaries), nil
-}
-
 // Initiate shutdown, closing open connections.
 func (s *Server) shutdown() {
 	var err error
@@ -290,7 +176,7 @@ func (s *Server) shutdown() {
 	// If a task is currently still running, stop it first.
 	if s.handler.activeTask != nil {
 		log.Println("Stopping current task:", s.handler.activeTask.Name)
-		_, err = s.handler.stopTimer()
+		err = s.handler.StopCurrentTask(msg.Request{}, nil)
 		if err != nil {
 			log.Println(err)
 		}
