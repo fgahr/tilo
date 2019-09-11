@@ -136,8 +136,6 @@ func (s *server) main() {
 	defer close(signalChan)
 	defer close(connectChan)
 
-	defer
-
 	// Enable cleanup on receiving SIGTERM.
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	// Enable connection processing.
