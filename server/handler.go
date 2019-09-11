@@ -5,6 +5,7 @@ import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
+	"github.com/fgahr/tilo/server/gui"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"log"
@@ -13,10 +14,10 @@ import (
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
-	server     *Server        // The server to which this handler is attached
-	activeTask *msg.Task      // The currently active task, if any
-	backend    *db.Backend    // Database connection
-	Conf       *config.Params // Configuration parameters for this instance
+	shutdownChan chan<- struct{} // The server to which this handler is attached
+	activeTask   *msg.Task       // The currently active task, if any
+	backend      *db.Backend     // Database connection
+	conf         *config.Params  // Configuration parameters for this instance
 }
 
 // Close the request handler, shutting down the backend.
@@ -26,13 +27,13 @@ func (h *RequestHandler) close() error {
 
 // FIXME: The request will be logged twice in several situations
 func (h *RequestHandler) logRequest(req msg.Request) {
-	if h.Conf.DebugLevel >= config.DebugSome {
+	if h.conf.DebugLevel >= config.DebugSome {
 		log.Printf("Processing request: %v\n", req)
 	}
 }
 
 func (h *RequestHandler) logResponse(resp *msg.Response) {
-	if h.Conf.DebugLevel >= config.DebugAll {
+	if h.conf.DebugLevel >= config.DebugAll {
 		log.Printf("Returning response: %v\n", *resp)
 	}
 }
@@ -80,6 +81,12 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.activeTask = msg.NewTask(taskName)
 	*resp = msg.StartTaskResponse(h.activeTask, oldTask)
 	h.logResponse(resp)
+	if h.conf.Gui {
+		err := gui.SetIconBusy(taskName)
+		if err != nil {
+			log.Println(err)
+		}
+	}
 	return nil
 }
 
@@ -97,6 +104,12 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	}
 	h.activeTask = nil
 	h.logResponse(resp)
+	if h.conf.Gui {
+		err = gui.SetIconIdle()
+		if err != nil {
+			log.Println(err)
+		}
+	}
 	return err
 }
 
@@ -124,6 +137,12 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 	h.activeTask = nil
 	*resp = msg.AbortedTaskResponse(aborted)
 	h.logResponse(resp)
+	if h.conf.Gui {
+		err := gui.SetIconIdle()
+		if err != nil {
+			log.Println(err)
+		}
+	}
 	return nil
 }
 
@@ -132,7 +151,7 @@ func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) err
 	h.logRequest(req)
 	// This causes the main loop to exit at the next iteration.
 	// Note that the channel needs to be buffered to avoid deadlocking here.
-	h.server.shutdownChan <- struct{}{}
+	h.shutdownChan <- struct{}{}
 	lastActive := h.activeTask
 	err := h.StopCurrentTask(req, resp)
 	*resp = msg.ShutdownResponse(lastActive, err)

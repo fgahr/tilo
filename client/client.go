@@ -37,18 +37,23 @@ func NewClient(params *config.Params) (*Client, error) {
 
 // Interact with the server based on the program's line arguments.
 func (c *Client) HandleArgs(args []string) error {
-	err := c.ensureServerIsRunning()
-	if err != nil {
-		return err
-	}
+	c.ensureServerIsRunning()
+	fnName, request := c.parseArgs(args)
+	c.connectToServer()
+	c.performRequest(fnName, request)
+	return c.err
+}
 
+func (c *Client) parseArgs(args []string) (string, msg.Request) {
+	if c.err != nil {
+		return "", msg.Request{}
+	}
 	fnName, request, err := msg.ParseRequest(args, time.Now())
 	if err != nil {
-		return err
+		c.err = errors.Wrap(err, "Unable to parse command line arguments")
+		return "", msg.Request{}
 	}
-
-	err = c.performRequest(fnName, request)
-	return err
+	return fnName, request
 }
 
 // Close the client's connection to the server.
@@ -76,20 +81,26 @@ func (c *Client) connectToServer() {
 }
 
 // Perform a request-response-cycle, evaluating the server response to the request.
-func (c *Client) performRequest(fnName string, req msg.Request) error {
-	c.connectToServer()
+func (c *Client) performRequest(fnName string, req msg.Request) {
+	if c.err != nil {
+		return
+	}
+
 	var resp msg.Response
 	err := c.rpcClient.Call(fnName, req, &resp)
 	if err != nil {
-		return errors.Wrapf(
+		c.err = errors.Wrapf(
 			err, "Unable to call remote procedure %s for request %v", fnName, req)
+		return
 	}
 
 	err = resp.Err()
 	if err != nil {
-		return err
+		c.err = err
+		return
 	} else {
-		return c.printResponse(resp)
+		c.err = c.printResponse(resp)
+		return
 	}
 }
 
@@ -115,45 +126,49 @@ func (c *Client) printResponse(resp msg.Response) error {
 
 // If the server is not already running, start it in a new background thread
 // and wait for it to come online.
-func (c *Client) ensureServerIsRunning() error {
+func (c *Client) ensureServerIsRunning() {
+	if c.err != nil {
+		return
+	}
 	// If connected we already know it is running.
 	if c.conn != nil {
-		return nil
+		return
 	}
 
 	// Query server status.
 	running, err := server.IsRunning(c.Conf)
 	if err != nil {
-		return err
+		c.err = errors.Wrap(err, "Could not determine server status")
+		return
+	}
+	if running {
+		return
 	}
 
 	// Start server if it isn't running.
-	// FIXME: This section seems to be broken, always running into a timeout.
-	if !running {
-		err := server.StartInBackground(c.Conf)
-		if err != nil {
-			return err
-		}
-
-		// Wait for server to become available
-		notifyChan := make(chan struct{})
-		go func(ch chan<- struct{}) {
-			for {
-				up, _ := server.IsRunning(c.Conf)
-				if up {
-					ch <- struct{}{}
-					return
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}(notifyChan)
-		select {
-		case <-notifyChan:
-			return nil
-		case <-time.After(5 * time.Second):
-			close(notifyChan)
-			return errors.New("Timeout exceeded trying to bring up server.")
-		}
+	err = server.StartInBackground(c.Conf)
+	if err != nil {
+		c.err = errors.Wrap(err, "Could not start server")
 	}
-	return nil
+
+	// Wait for server to become available
+	notifyChan := make(chan struct{})
+	go func(ch chan<- struct{}) {
+		for {
+			up, _ := server.IsRunning(c.Conf)
+			if up {
+				ch <- struct{}{}
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}(notifyChan)
+	select {
+	case <-notifyChan:
+		return
+	// TODO: Make timeout configurable
+	case <-time.After(5 * time.Second):
+		close(notifyChan)
+		c.err = errors.New("Timeout exceeded trying to bring up server.")
+	}
 }

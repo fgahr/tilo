@@ -5,8 +5,10 @@ import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
+	"github.com/fgahr/tilo/server/gui"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	"github.com/therecipe/qt/widgets"
 	"log"
 	"net"
 	"net/rpc"
@@ -16,30 +18,58 @@ import (
 	"syscall"
 )
 
-type Server struct {
+// A tilo server. When the configuration is provided, the remaining fields
+// are filled by the .init() method.
+type server struct {
 	// FIXME: Shutdown being communicated via a simple variable is bad in a
 	// setting featuring some (albeit primitive) concurrency as it may not be
-	// properly shared across CPU cores.
+	// properly shared across CPU cores. Consider closing a channel instead.
 	shuttingDown bool            // True when shutting down
 	shutdownChan chan struct{}   // Used to communicate shutdown requests
-	Conf         *config.Params  // Configuration parameters for this instance
+	conf         *config.Params  // Configuration parameters for this instance
 	handler      *RequestHandler // Client request handler
 	rpcEndpoint  *rpc.Server     // Server for RPC requests
 	listener     net.Listener    // Listener for the client request socket
 }
 
-func Run(params *config.Params) error {
-	s := newServer(params)
+// Start server operation.
+// This function will block until server shutdown.
+func Run(conf *config.Params) error {
+	s := newServer(conf)
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
 	}
-	s.main()
-	return nil
+	// Ensure clean shutdown if at all possible. This cannot be moved to
+	// s.main() because that might not be the main goroutine.
+	defer s.enforceCleanup()
+
+	if conf.Gui {
+		qApp := gui.SetUpSystemTrayWidget(conf)
+		if qApp != nil {
+			go s.main(qApp)
+			ret := qApp.Exec()
+			if ret == 0 {
+				return nil
+			} else {
+				return errors.Errorf("Caught error code %d.", ret)
+			}
+		}
+	}
+
+	if !conf.Gui {
+		s.main(nil)
+		return nil
+	} else {
+		// If GUI setup fails, the corresponding config option should be set
+		// to false and hence if this point is reached we have a logic error.
+		panic("Inconsistent code path: GUI option undecided")
+	}
 }
 
-func newServer(params *config.Params) *Server {
-	s := new(Server)
-	s.Conf = params
+// Create and configure a new server.
+func newServer(conf *config.Params) *server {
+	s := new(server)
+	s.conf = conf
 	return s
 }
 
@@ -59,9 +89,9 @@ func ensureDirExists(dir string) error {
 	return os.MkdirAll(dir, 0700)
 }
 
-// Start the server.
-func (s *Server) init() error {
-	running, err := IsRunning(s.Conf)
+// Start the server, initiating required connections.
+func (s *server) init() error {
+	running, err := IsRunning(s.conf)
 	if err != nil {
 		return err
 	}
@@ -70,20 +100,25 @@ func (s *Server) init() error {
 		return errors.New("Cannot start server: Already running.")
 	}
 
+	// Shutdown channel needs to be buffered to avoid deadlock.
+	// FIXME: To support proper concurrent server operation, buffer size needs
+	// to match concurrent thread count. This is not an issue yet.
+	s.shutdownChan = make(chan struct{}, 1)
+
 	// Create directories if necessary
-	err = ensureDirExists(s.Conf.ConfDir)
+	err = ensureDirExists(s.conf.ConfDir)
 	if err != nil {
 		return err
 	}
 
-	err = ensureDirExists(s.Conf.TempDir)
+	err = ensureDirExists(s.conf.TempDir)
 	if err != nil {
 		return err
 	}
 
-	handler := RequestHandler{Conf: s.Conf, server: s, activeTask: nil}
+	handler := RequestHandler{conf: s.conf, shutdownChan: s.shutdownChan, activeTask: nil}
 	// Establish database connection.
-	backend, err := db.NewBackend(s.Conf)
+	backend, err := db.NewBackend(s.conf)
 	if err != nil {
 		s.listener.Close()
 		backend.Close()
@@ -93,8 +128,7 @@ func (s *Server) init() error {
 	handler.backend = backend
 	s.handler = &handler
 	// Establish socket connection.
-	listener, err := net.Listen("unix", s.Conf.Socket())
-	// listener, err := net.Listen("tcp", "localhost:9999")
+	listener, err := net.Listen("unix", s.conf.Socket())
 	if err != nil {
 		return err
 	}
@@ -104,28 +138,26 @@ func (s *Server) init() error {
 	rpcEndpoint.Register(&handler)
 	s.rpcEndpoint = rpcEndpoint
 
-	// Shutdown channel needs to be buffered to avoid deadlock.
-	// FIXME: To support proper concurrent server operation, buffer size needs
-	// to match concurrent thread count. This is not an issue yet.
-	s.shutdownChan = make(chan struct{}, 1)
-
 	return nil
 }
 
+// Enforce cleanup when the server stops.
+func (s *server) enforceCleanup() {
+	if r := recover(); r != nil {
+		log.Println("Shutting down.", r)
+	}
+	s.shutdown()
+}
+
 // Server main loop: process incoming requests.
-func (s *Server) main() {
-	// Ensure clean shutdown if at all possible.
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Encountered panic in Server.main()", r)
-		}
-		s.shutdown()
-	}()
+func (s *server) main(qApp *widgets.QApplication) {
 	// Signal channel needs to be buffered, see documentation.
 	signalChan := make(chan os.Signal, 1)
 	connectChan := make(chan net.Conn)
 	defer close(signalChan)
 	defer close(connectChan)
+
+	defer
 
 	// Enable cleanup on receiving SIGTERM.
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
@@ -145,10 +177,14 @@ MainLoop:
 			break MainLoop
 		}
 	}
+
+	if qApp != nil {
+		qApp.Exit(0)
+	}
 }
 
 // Wait for a client to connect. Send connections to the given channel.
-func (s *Server) waitForConnection(connectChan chan<- net.Conn) {
+func (s *server) waitForConnection(connectChan chan<- net.Conn) {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -163,13 +199,13 @@ func (s *Server) waitForConnection(connectChan chan<- net.Conn) {
 }
 
 // Receive a request from the connection and process it. Send a response back.
-func (s *Server) serveConnection(conn net.Conn) {
+func (s *server) serveConnection(conn net.Conn) {
 	codec := jsonrpc.NewServerCodec(conn)
 	s.rpcEndpoint.ServeCodec(codec)
 }
 
 // Initiate shutdown, closing open connections.
-func (s *Server) shutdown() {
+func (s *server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
 	s.shuttingDown = true
@@ -199,7 +235,7 @@ func (s *Server) shutdown() {
 	}
 
 	log.Print("Removing temporary directory..")
-	err = os.RemoveAll(s.Conf.TempDir)
+	err = os.RemoveAll(s.conf.TempDir)
 	if err != nil {
 		log.Println(err)
 	} else {
@@ -227,11 +263,11 @@ func StartInBackground(params *config.Params) error {
 	// No need to keep track of the spawned process
 	executable, err := os.Executable()
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server in background")
+		return errors.Wrap(err, "Unable to determine server executable")
 	}
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server in background")
+		return errors.Wrap(err, "Unable to start server process")
 	}
 	log.Printf("Server started in background process: PID %d\n", proc.Pid)
 	return nil

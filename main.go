@@ -37,6 +37,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// TODO: Cleanup? This is just a quick fix for now.
+	if args[0] == "--no-gui" {
+		params.Gui = false
+		// If this is a client call that spawns the server in the background,
+		// pass this option along.
+		os.Setenv("TILO_GUI", "0")
+		args = args[1:]
+	} else if os.Getenv("TILO_GUI") == "0" {
+		params.Gui = false
+	}
+
 	// "server run" and "server start" do not involve requests
 	if len(args) > 1 && args[0] == "server" && args[1] == "run" {
 		signal.Ignore(syscall.SIGHUP)
