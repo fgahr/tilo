@@ -155,6 +155,7 @@ func (h *RequestHandler) Query(req msg.Request, resp *msg.Response) error {
 			summaries = append(summaries, newSummaries...)
 		}
 	}
+	// FIXME: Responses include several empty fields with date 0001-01-01. Just my db?
 	*resp = msg.QueryResponse(summaries)
 	h.logResponse(resp)
 	return nil

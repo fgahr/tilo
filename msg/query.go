@@ -2,12 +2,12 @@
 package msg
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"io"
 	"strconv"
 	"strings"
 	"time"
-	"fmt"
 )
 
 const (
@@ -122,6 +122,7 @@ func getDetailParsers() []detailParser {
 		noModDetailParser{id: PrmLastMonth, f: monthsAgoFunc(1)},
 		noModDetailParser{id: PrmThisYear, f: yearsAgoFunc(0)},
 		noModDetailParser{id: PrmLastYear, f: yearsAgoFunc(1)},
+		noModDetailParser{id: PrmEver, f: getSinceEpoch},
 		singleModDetailParser{id: PrmDate, f: getDate},
 		singleModDetailParser{id: PrmMonth, f: getMonth},
 		singleModDetailParser{id: PrmMonthsAgo, f: getMonthsAgo},
@@ -236,6 +237,11 @@ func yearsAgoFunc(years int) func(time.Time) QueryDetails {
 	return func(now time.Time) QueryDetails {
 		return yearsAgo(now, years)
 	}
+}
+
+func getSinceEpoch(now time.Time) QueryDetails {
+	details, _ := getSince("1970-01-01", now)
+	return details
 }
 
 type singleModDetailParser struct {
