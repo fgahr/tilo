@@ -5,10 +5,8 @@ import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
-	"github.com/fgahr/tilo/server/gui"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"github.com/therecipe/qt/widgets"
 	"log"
 	"net"
 	"net/rpc"
@@ -39,31 +37,12 @@ func Run(conf *config.Params) error {
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
 	}
-	// Ensure clean shutdown if at all possible. This cannot be moved to
-	// s.main() because that might not be the main goroutine.
+
+	// Ensure clean shutdown if at all possible.
 	defer s.enforceCleanup()
 
-	if conf.Gui {
-		qApp := gui.SetUpSystemTrayWidget(conf)
-		if qApp != nil {
-			go s.main(qApp)
-			ret := qApp.Exec()
-			if ret == 0 {
-				return nil
-			} else {
-				return errors.Errorf("Caught error code %d.", ret)
-			}
-		}
-	}
-
-	if !conf.Gui {
-		s.main(nil)
-		return nil
-	} else {
-		// If GUI setup fails, the corresponding config option should be set
-		// to false and hence if this point is reached we have a logic error.
-		panic("Inconsistent code path: GUI option undecided")
-	}
+	s.main()
+	return nil
 }
 
 // Create and configure a new server.
@@ -150,7 +129,7 @@ func (s *server) enforceCleanup() {
 }
 
 // Server main loop: process incoming requests.
-func (s *server) main(qApp *widgets.QApplication) {
+func (s *server) main() {
 	// Signal channel needs to be buffered, see documentation.
 	signalChan := make(chan os.Signal, 1)
 	connectChan := make(chan net.Conn)
@@ -176,10 +155,6 @@ MainLoop:
 		case <-s.shutdownChan:
 			break MainLoop
 		}
-	}
-
-	if qApp != nil {
-		qApp.Exit(0)
 	}
 }
 

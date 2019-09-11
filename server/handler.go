@@ -5,7 +5,6 @@ import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
-	"github.com/fgahr/tilo/server/gui"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"log"
@@ -81,12 +80,6 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.activeTask = msg.NewTask(taskName)
 	*resp = msg.StartTaskResponse(h.activeTask, oldTask)
 	h.logResponse(resp)
-	if h.conf.Gui {
-		err := gui.SetIconBusy(taskName)
-		if err != nil {
-			log.Println(err)
-		}
-	}
 	return nil
 }
 
@@ -104,12 +97,6 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	}
 	h.activeTask = nil
 	h.logResponse(resp)
-	if h.conf.Gui {
-		err = gui.SetIconIdle()
-		if err != nil {
-			log.Println(err)
-		}
-	}
 	return err
 }
 
@@ -137,12 +124,6 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 	h.activeTask = nil
 	*resp = msg.AbortedTaskResponse(aborted)
 	h.logResponse(resp)
-	if h.conf.Gui {
-		err := gui.SetIconIdle()
-		if err != nil {
-			log.Println(err)
-		}
-	}
 	return nil
 }
 

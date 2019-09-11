@@ -19,7 +19,6 @@ type Params struct {
 	DBFileName string // The name of the DB file.
 	SocketName string // The name of the socket file.
 	DebugLevel int    // Determines the amount of additional log output.
-	Gui        bool   // Whether to enable a graphical interface.
 }
 
 // The socket to use for communication with the server.
@@ -46,6 +45,5 @@ func DefaultParams() (*Params, error) {
 		DBFileName: "tilo.db",
 		SocketName: "server",
 		DebugLevel: DebugAll, // TODO: Make this a non-default and flexible.
-		Gui:        true,
 	}, nil
 }
