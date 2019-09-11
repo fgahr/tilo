@@ -143,8 +143,7 @@ func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) err
 // Gather a query response from the database.
 func (h *RequestHandler) Query(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	// Initial capacity chosen arbitrarily
-	summaries := make([]msg.Summary, 4)
+	var summaries []msg.Summary
 	for _, detail := range req.QueryArgs {
 		for _, task := range req.Tasks {
 			newSummaries, err := h.backend.Query(task, detail)
@@ -155,7 +154,6 @@ func (h *RequestHandler) Query(req msg.Request, resp *msg.Response) error {
 			summaries = append(summaries, newSummaries...)
 		}
 	}
-	// FIXME: Responses include several empty fields with date 0001-01-01. Just my db?
 	*resp = msg.QueryResponse(summaries)
 	h.logResponse(resp)
 	return nil
