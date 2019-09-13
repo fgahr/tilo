@@ -67,6 +67,7 @@ func (b *Backend) Save(task *msg.Task) error {
 
 // Query the database based on the given query details.
 func (b *Backend) Query(taskName string, detail msg.QueryDetails) ([]msg.Summary, error) {
+	// TODO: Move this function to the handler instead and keep this out of the backend?
 	if len(detail) < 2 {
 		return nil, errors.Errorf("Invalid query details: %v", detail)
 	}
