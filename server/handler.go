@@ -124,6 +124,7 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 	h.logRequest(req)
 	if h.activeTask == nil {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
+		return nil
 	}
 	h.activeTask.Stop()
 	aborted := h.activeTask
