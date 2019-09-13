@@ -39,35 +39,6 @@ func (h *RequestHandler) logResponse(resp *msg.Response) {
 	}
 }
 
-// Process the given request, producing a response accordingly.
-func (h *RequestHandler) HandleRequest(req msg.Request, resp *msg.Response) error {
-	h.logRequest(req)
-	var err error = nil
-	switch req.Cmd {
-	case msg.CmdStart:
-		err = h.StartTask(req, resp)
-	case msg.CmdStop:
-		err = h.StopCurrentTask(req, resp)
-	case msg.CmdCurrent:
-		err = h.GetCurrentTask(req, resp)
-	case msg.CmdAbort:
-		err = h.AbortCurrentTask(req, resp)
-	case msg.CmdQuery:
-		err = h.Query(req, resp)
-	case msg.CmdShutdown:
-		err = h.ShutdownServer(req, resp)
-	default:
-		err = errors.Errorf("Not implemented: %s", req.Cmd)
-	}
-
-	if err != nil {
-		log.Println(err)
-		*resp = msg.ErrorResponse(err)
-	}
-	h.logResponse(resp)
-	return nil
-}
-
 // Start a timer for the given arguments, respond its details.
 func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
