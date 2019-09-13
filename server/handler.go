@@ -57,7 +57,7 @@ func (h *RequestHandler) registerListener(lst *notificationListener) {
 }
 
 // Send a notification to all registered listeners.
-func (h *RequestHandler) notifyListeners(ntf notification) {
+func (h *RequestHandler) notifyListeners(ntf Notification) {
 	if h.conf.DebugLevel == config.DebugAll {
 		log.Println("Notifying listeners:", ntf)
 	}
@@ -86,7 +86,7 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	}
 	var startTime time.Time
 	startTime, h.activeTask = msg.NewTask(taskName)
-	h.notifyListeners(notification{taskName, startTime})
+	h.notifyListeners(Notification{taskName, startTime})
 	*resp = msg.StartTaskResponse(h.activeTask, oldTask)
 	h.logResponse(resp)
 	return nil
@@ -103,7 +103,7 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	}
 	endTime := h.activeTask.Stop()
 	// NOTE: Delegating to a goroutine might cause problems when shutting down
-	h.notifyListeners(notification{"", endTime})
+	h.notifyListeners(Notification{"", endTime})
 	err := h.backend.Save(h.activeTask)
 	if resp != nil {
 		*resp = msg.StoppedTaskResponse(h.activeTask)
@@ -136,7 +136,7 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 		return nil
 	}
 	endTime := h.activeTask.Stop()
-	h.notifyListeners(notification{"", endTime})
+	h.notifyListeners(Notification{"", endTime})
 	aborted := h.activeTask
 	h.activeTask = nil
 	*resp = msg.AbortedTaskResponse(aborted)

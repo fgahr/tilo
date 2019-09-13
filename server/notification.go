@@ -7,9 +7,9 @@ import (
 )
 
 // The notification to send to listeners.
-type notification struct {
-	task  string    // The name of the task; empty if idle
-	since time.Time // Time of the last status change, formatted
+type Notification struct {
+	Task  string    // The name of the task; empty if idle
+	Since time.Time // Time of the last status change, formatted
 }
 
 // An entity awaiting notifications about task changes.
@@ -18,9 +18,9 @@ type notificationListener struct {
 }
 
 // A notification informing listeners about server shutdown.
-func shutdownNotification() notification {
+func shutdownNotification() Notification {
 	// --shutdown is not a valid task name and hence can be used as a signal.
-	return notification{"--shutdown", time.Now().Truncate(time.Second)}
+	return Notification{"--shutdown", time.Now().Truncate(time.Second)}
 }
 
 // Disconnect this listener.
@@ -32,7 +32,7 @@ func (lst *notificationListener) disconnect() error {
 }
 
 // Notify this listener.
-func (lst *notificationListener) notify(ntf notification) error {
+func (lst *notificationListener) notify(ntf Notification) error {
 	data, err := json.Marshal(ntf)
 	if err != nil {
 		panic(err)
