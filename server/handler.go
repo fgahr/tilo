@@ -13,7 +13,7 @@ import (
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
-	shutdownChan chan struct{}  // The server to which this handler is attached
+	shutdownChan chan struct{}  // Channel to broadcast server shutdown
 	activeTask   *msg.Task      // The currently active task, if any
 	backend      *db.Backend    // Database connection
 	conf         *config.Params // Configuration parameters for this instance
@@ -124,6 +124,7 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 	h.logRequest(req)
 	if h.activeTask == nil {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
+		return nil
 	}
 	h.activeTask.Stop()
 	aborted := h.activeTask
