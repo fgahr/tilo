@@ -1,21 +1,23 @@
 # tilo
 A simple time logging system written in Golang, backed by SQLite3, with
-client/server operation.
+client/server operation. Server and client communicate through a
+Unix domain socket, so windows will not work. Developed and tested on Linux
+but other unix-likes might work, too. There is no reason communication
+can't be done through a tcp socket and it's easy to change. Hopefully, this
+will be configurable at some point.
 
-This is mainly meant as a personal learning project and is very much incomplete.
-That being said, I intend to use it and fix/improve it as necessary. Feel free
-to point out any mistakes I made.
+For now, this is mainly meant as a personal learning project and is very much
+incomplete. That being said, I intend to use it and fix/improve it as necessary.
+Feel free to point out any mistakes I made.
 
 # Bugs
-There are a few that I'm aware and many more yet unbeknownst to me. Feel free
-to find them and let me know. There may already be a `FIXME` in the code.
+There are a few that I'm aware of and many more yet unbeknownst to me. Feel
+free to find them and let me know. There may already be a `FIXME` in the code.
 If you want to help me squash them, feel free to.
 
 # Installation
-Developed and tested only on Linux.
-Server and client communicate through a
-Unix domain socket, so windows will not work. Other unix-likes might. Make sure
-you have `go` installed. Then
+As mentioned above, your best bet is running on Linux. Make sure you have
+`go` installed. Then
 ```
 go get -u -v github.com/fgahr/tilo
 ```
@@ -38,6 +40,7 @@ Simple commands (may start server in background):
     stop                Stop the current task, log the time
     abort               Stop the current task without logging it
     shutdown            Shut down the server. The current task will be logged
+    listen              Register as a notification listener, print notifications.
 
 Query command: query <tasks> <params> Query the database
     tasks: A comma-separated list of task names (no spaces!), --all to get all tasks
