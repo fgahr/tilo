@@ -19,11 +19,12 @@ import (
 // A tilo server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
 type server struct {
-	shutdownChan chan struct{}   // Used to communicate shutdown requests
-	conf         *config.Params  // Configuration parameters for this instance
-	handler      *RequestHandler // Client request handler
-	rpcEndpoint  *rpc.Server     // Server for RPC requests
-	listener     net.Listener    // Listener for the client request socket
+	shutdownChan    chan struct{}   // Used to communicate shutdown requests
+	conf            *config.Params  // Configuration parameters for this instance
+	handler         *RequestHandler // Client request handler
+	rpcEndpoint     *rpc.Server     // Server for RPC requests
+	reqSockListener net.Listener    // Listener on the client request socket
+	ntfSockListener net.Listener    // Listener on the notification socket
 }
 
 // Start server operation.
@@ -51,7 +52,7 @@ func newServer(conf *config.Params) *server {
 
 // Check whether the server is running.
 func IsRunning(params *config.Params) (bool, error) {
-	_, err := os.Stat(params.Socket())
+	_, err := os.Stat(params.RequestSocket())
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -86,8 +87,6 @@ func (s *server) init() error {
 		return errors.New("Cannot start server: Already running.")
 	}
 
-	// FIXME: To support proper concurrent server operation, buffer size needs
-	// to match concurrent thread count. This is not an issue yet.
 	s.shutdownChan = make(chan struct{})
 
 	// Create directories if necessary
@@ -95,7 +94,6 @@ func (s *server) init() error {
 	if err != nil {
 		return err
 	}
-
 	err = ensureDirExists(s.conf.TempDir)
 	if err != nil {
 		return err
@@ -105,20 +103,29 @@ func (s *server) init() error {
 	// Establish database connection.
 	backend, err := db.NewBackend(s.conf)
 	if err != nil {
-		s.listener.Close()
+		s.reqSockListener.Close()
 		backend.Close()
 		return err
 	}
 
 	handler.backend = backend
 	s.handler = &handler
-	// Establish socket connection.
-	listener, err := net.Listen("unix", s.conf.Socket())
+
+	// Open request socket.
+	requestListener, err := net.Listen("unix", s.conf.RequestSocket())
 	if err != nil {
 		return err
 	}
-	s.listener = listener
+	s.reqSockListener = requestListener
 
+	// Open notification socket.
+	notificationListener, err := net.Listen("unix", s.conf.NotificationSocket())
+	if err != nil {
+		return err
+	}
+	s.ntfSockListener = notificationListener
+
+	// Configure endpoint for remote procedure calls.
 	rpcEndpoint := rpc.NewServer()
 	rpcEndpoint.Register(&handler)
 	s.rpcEndpoint = rpcEndpoint
@@ -138,21 +145,26 @@ func (s *server) enforceCleanup() {
 func (s *server) main() {
 	// Signal channel needs to be buffered, see documentation.
 	signalChan := make(chan os.Signal, 1)
-	connectChan := make(chan net.Conn)
+	reqChan := make(chan net.Conn)
+	ntfChan := make(chan net.Conn)
 	defer close(signalChan)
-	defer close(connectChan)
+	defer close(reqChan)
+	defer close(ntfChan)
 
 	// Enable cleanup on receiving SIGTERM.
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	// Enable connection processing.
-	go s.waitForConnection(connectChan)
+	go s.waitForConnection(s.reqSockListener, reqChan)
+	go s.waitForConnection(s.ntfSockListener, ntfChan)
 
 	log.Println("Starting server main loop.")
 MainLoop:
 	for {
 		select {
-		case conn := <-connectChan:
-			s.serveConnection(conn)
+		case rconn := <-reqChan:
+			s.serveRequestConnection(rconn)
+		case nconn := <-ntfChan:
+			s.serveNotificationConnection(nconn)
 		case sig := <-signalChan:
 			log.Println("Received signal: ", sig)
 			break MainLoop
@@ -163,9 +175,9 @@ MainLoop:
 }
 
 // Wait for a client to connect. Send connections to the given channel.
-func (s *server) waitForConnection(connectChan chan<- net.Conn) {
+func (s *server) waitForConnection(lst net.Listener, channel chan<- net.Conn) {
 	for {
-		conn, err := s.listener.Accept()
+		conn, err := lst.Accept()
 		if err != nil {
 			if s.shuttingDown() {
 				// Ignore shutdown-related errors.
@@ -173,15 +185,20 @@ func (s *server) waitForConnection(connectChan chan<- net.Conn) {
 			}
 			log.Println(err)
 		} else {
-			connectChan <- conn
+			channel <- conn
 		}
 	}
 }
 
 // Receive a request from the connection and process it. Send a response back.
-func (s *server) serveConnection(conn net.Conn) {
+func (s *server) serveRequestConnection(conn net.Conn) {
 	codec := jsonrpc.NewServerCodec(conn)
 	s.rpcEndpoint.ServeCodec(codec)
+}
+
+// Serve a notification listener connection, keeping it open.
+func (s *server) serveNotificationConnection(conn net.Conn) {
+	s.handler.registerListener(&notificationListener{conn})
 }
 
 // Initiate shutdown, closing open connections.
@@ -196,8 +213,16 @@ func (s *server) shutdown() {
 		}
 	}
 
-	log.Print("Closing domain socket..")
-	err = s.listener.Close()
+	log.Print("Closing request socket..")
+	err = s.reqSockListener.Close()
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("OK")
+	}
+
+	log.Print("Closing notification socket..")
+	err = s.ntfSockListener.Close()
 	if err != nil {
 		log.Println(err)
 	} else {

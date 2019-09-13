@@ -32,7 +32,7 @@ Simple commands (may start server in background):
 	abort               Stop the current task without logging it
 	shutdown            Shut down the server. The current task will be logged
 
-Query command: query <tasks> <params> Query the database
+Query command: query <tasks> <conf> Query the database
 	tasks: A comma-separated list of task names (no spaces!), --all to get all tasks
 
 Unquantified parameters:
@@ -76,29 +76,46 @@ func main() {
 		os.Exit(0)
 	}
 
-	params, err := config.DefaultParams()
+	conf, err := config.DefaultConfig()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// NOTE: This is mostly for debugging purposes.
+	if os.Args[1] == "listen" {
+		printServerNotifications(conf)
 	}
 
 	// "server run" and "server start" do not involve requests
 	if len(args) > 1 && args[0] == "server" && args[1] == "run" {
 		signal.Ignore(syscall.SIGHUP)
-		err = server.Run(params)
+		err = server.Run(conf)
 	} else if len(args) > 1 && args[0] == "server" && args[1] == "start" {
-		err = server.StartInBackground(params)
+		err = server.StartInBackground(conf)
 	} else {
-		err = handleClientArgs(args, params)
+		err = handleClientArgs(args, conf)
 	}
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
+// Print server notifications to stdout.
+func printServerNotifications(conf *config.Params) {
+	c, err := client.NewClient(conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := c.PrintNotifications(os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+	os.Exit(0)
+}
+
 // Handle client functionality, parsing the relevant arguments.
-func handleClientArgs(clientArgs []string, params *config.Params) error {
+func handleClientArgs(clientArgs []string, conf *config.Params) error {
 	requireArgs(clientArgs, 1)
-	c, err := client.NewClient(params)
+	c, err := client.NewClient(conf)
 	if err != nil {
 		return err
 	}

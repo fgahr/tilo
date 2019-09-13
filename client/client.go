@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -39,9 +40,21 @@ func NewClient(params *config.Params) (*Client, error) {
 func (c *Client) HandleArgs(args []string) error {
 	c.ensureServerIsRunning()
 	fnName, request := c.parseArgs(args)
-	c.connectToServer()
+	c.connectToRequestSocket()
 	c.performRequest(fnName, request)
 	return c.err
+}
+
+// Listen to notifications from the server and print them to stdout.
+func (c *Client) PrintNotifications(w io.Writer) error {
+	c.ensureServerIsRunning()
+	conn, err := net.Dial("unix", c.Conf.NotificationSocket())
+	if err != nil {
+		return errors.Wrap(err, "Cannot connect to socket")
+	}
+	defer conn.Close()
+	_, err = io.Copy(w, conn)
+	return errors.Wrap(err, "Transmission failed")
 }
 
 func (c *Client) parseArgs(args []string) (string, msg.Request) {
@@ -69,11 +82,11 @@ func (c *Client) Close() error {
 }
 
 // Establish a server connection.
-func (c *Client) connectToServer() {
+func (c *Client) connectToRequestSocket() {
 	if c.err != nil {
 		return
 	}
-	rpcClient, err := jsonrpc.Dial("unix", c.Conf.Socket())
+	rpcClient, err := jsonrpc.Dial("unix", c.Conf.RequestSocket())
 	if err != nil {
 		c.err = err
 	}

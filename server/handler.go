@@ -8,19 +8,29 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"log"
+	"time"
 )
 
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
-	shutdownChan chan struct{}  // Channel to broadcast server shutdown
-	activeTask   *msg.Task      // The currently active task, if any
-	backend      *db.Backend    // Database connection
-	conf         *config.Params // Configuration parameters for this instance
+	shutdownChan chan struct{}           // Channel to broadcast server shutdown
+	activeTask   *msg.Task               // The currently active task, if any
+	backend      *db.Backend             // Database connection
+	conf         *config.Params          // Configuration parameters for this instance
+	listeners    []*notificationListener // Listeners for task change notifications
 }
 
 // Close the request handler, shutting down the backend.
 func (h *RequestHandler) close() error {
+	if len(h.listeners) > 0 {
+		log.Println("Disconnecting listeners")
+	}
+	for _, lst := range h.listeners {
+		if err := lst.disconnect(); err != nil {
+			log.Println("Error closing listener connection:", err)
+		}
+	}
 	return h.backend.Close()
 }
 
@@ -39,6 +49,30 @@ func (h *RequestHandler) logResponse(resp *msg.Response) {
 	}
 }
 
+// Register a listener waiting for notifications.
+func (h *RequestHandler) registerListener(lst *notificationListener) {
+	log.Println("Registering notification listener")
+	// TODO: Make thread-safe: connections can be server concurrently!
+	h.listeners = append(h.listeners, lst)
+}
+
+// Send a notification to all registered listeners.
+func (h *RequestHandler) notifyListeners(ntf notification) {
+	if h.conf.DebugLevel == config.DebugAll {
+		log.Println("Notifying listeners:", ntf)
+	}
+	for i, lst := range h.listeners {
+		if lst == nil {
+			continue
+		}
+		if err := lst.notify(ntf); err != nil {
+			log.Println("Could not notify listener, disconnecting:", err)
+			lst.disconnect()
+			h.listeners[i] = nil
+		}
+	}
+}
+
 // Start a timer for the given arguments, respond its details.
 func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
@@ -50,7 +84,9 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 			return errors.Wrap(err, "Stopping previous timer failed")
 		}
 	}
-	h.activeTask = msg.NewTask(taskName)
+	var startTime time.Time
+	startTime, h.activeTask = msg.NewTask(taskName)
+	h.notifyListeners(notification{taskName, startTime})
 	*resp = msg.StartTaskResponse(h.activeTask, oldTask)
 	h.logResponse(resp)
 	return nil
@@ -65,7 +101,9 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
-	h.activeTask.Stop()
+	endTime := h.activeTask.Stop()
+	// NOTE: Delegating to a goroutine might cause problems when shutting down
+	h.notifyListeners(notification{"", endTime})
 	err := h.backend.Save(h.activeTask)
 	if resp != nil {
 		*resp = msg.StoppedTaskResponse(h.activeTask)
@@ -97,7 +135,8 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
-	h.activeTask.Stop()
+	endTime := h.activeTask.Stop()
+	h.notifyListeners(notification{"", endTime})
 	aborted := h.activeTask
 	h.activeTask = nil
 	*resp = msg.AbortedTaskResponse(aborted)
@@ -115,6 +154,7 @@ func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) err
 	err := h.StopCurrentTask(req, resp)
 	*resp = msg.ShutdownResponse(lastActive, err)
 	h.logResponse(resp)
+	h.notifyListeners(shutdownNotification())
 	return nil
 }
 
