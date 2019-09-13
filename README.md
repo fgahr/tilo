@@ -1,5 +1,6 @@
 # tilo
-A simple time logging system written in Golang, backed by SQLite3.
+A simple time logging system written in Golang, backed by SQLite3, with
+client/server operation.
 
 This is mainly meant as a personal learning project and is very much incomplete.
 That being said, I intend to use it and fix/improve it as necessary. Feel free
@@ -11,7 +12,10 @@ to find them and let me know. There may already be a `FIXME` in the code.
 If you want to help me squash them, feel free to.
 
 # Installation
-Developed and tested only on Linux. Make sure you have `go` installed. Then
+Developed and tested only on Linux.
+Server and client communicate through a
+Unix domain socket, so windows will not work. Other unix-likes might. Make sure
+you have `go` installed. Then
 ```
 go get -u -v github.com/fgahr/tilo
 ```
