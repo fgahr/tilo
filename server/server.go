@@ -19,10 +19,6 @@ import (
 // A tilo server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
 type server struct {
-	// FIXME: Shutdown being communicated via a simple variable is bad in a
-	// setting featuring some (albeit primitive) concurrency as it may not be
-	// properly shared across CPU cores. Consider closing a channel instead.
-	shuttingDown bool            // True when shutting down
 	shutdownChan chan struct{}   // Used to communicate shutdown requests
 	conf         *config.Params  // Configuration parameters for this instance
 	handler      *RequestHandler // Client request handler
@@ -40,6 +36,7 @@ func Run(conf *config.Params) error {
 
 	// Ensure clean shutdown if at all possible.
 	defer s.enforceCleanup()
+	defer close(s.shutdownChan)
 
 	s.main()
 	return nil
@@ -63,6 +60,16 @@ func IsRunning(params *config.Params) (bool, error) {
 	return true, nil
 }
 
+// Check whether the server is currently in shutdown.
+func (s *server) shuttingDown() bool {
+	select {
+	case <-s.shutdownChan:
+		return true
+	default:
+		return false
+	}
+}
+
 // Make sure the configuration directory exists, creating it if necessary.
 func ensureDirExists(dir string) error {
 	return os.MkdirAll(dir, 0700)
@@ -79,10 +86,9 @@ func (s *server) init() error {
 		return errors.New("Cannot start server: Already running.")
 	}
 
-	// Shutdown channel needs to be buffered to avoid deadlock.
 	// FIXME: To support proper concurrent server operation, buffer size needs
 	// to match concurrent thread count. This is not an issue yet.
-	s.shutdownChan = make(chan struct{}, 1)
+	s.shutdownChan = make(chan struct{})
 
 	// Create directories if necessary
 	err = ensureDirExists(s.conf.ConfDir)
@@ -161,7 +167,8 @@ func (s *server) waitForConnection(connectChan chan<- net.Conn) {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
-			if s.shuttingDown {
+			if s.shuttingDown() {
+				// Ignore shutdown-related errors.
 				break
 			}
 			log.Println(err)
@@ -181,10 +188,8 @@ func (s *server) serveConnection(conn net.Conn) {
 func (s *server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
-	s.shuttingDown = true
-	// If a task is currently still running, stop it first.
 	if s.handler.activeTask != nil {
-		log.Println("Stopping current task:", s.handler.activeTask.Name)
+		log.Println("Aborting current task:", s.handler.activeTask.Name)
 		err = s.handler.StopCurrentTask(msg.Request{}, nil)
 		if err != nil {
 			log.Println(err)

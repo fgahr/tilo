@@ -13,10 +13,10 @@ import (
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
-	shutdownChan chan<- struct{} // The server to which this handler is attached
-	activeTask   *msg.Task       // The currently active task, if any
-	backend      *db.Backend     // Database connection
-	conf         *config.Params  // Configuration parameters for this instance
+	shutdownChan chan struct{}  // Channel to broadcast server shutdown
+	activeTask   *msg.Task      // The currently active task, if any
+	backend      *db.Backend    // Database connection
+	conf         *config.Params // Configuration parameters for this instance
 }
 
 // Close the request handler, shutting down the backend.
@@ -24,13 +24,15 @@ func (h *RequestHandler) close() error {
 	return h.backend.Close()
 }
 
-// FIXME: The request will be logged twice in several situations
+// Log a request at the appropriate debug level.
 func (h *RequestHandler) logRequest(req msg.Request) {
+	// FIXME: Requests will be logged twice in several situations
 	if h.conf.DebugLevel >= config.DebugSome {
 		log.Printf("Processing request: %v\n", req)
 	}
 }
 
+// Log a response at the appropriate debug level.
 func (h *RequestHandler) logResponse(resp *msg.Response) {
 	if h.conf.DebugLevel >= config.DebugAll {
 		log.Printf("Returning response: %v\n", *resp)
@@ -85,7 +87,9 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 
 // Stop the current timer, respond its details.
 func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) error {
-	h.logRequest(req)
+	if resp != nil {
+		h.logRequest(req)
+	}
 	if h.activeTask == nil && resp != nil {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
@@ -96,7 +100,9 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 		*resp = msg.StoppedTaskResponse(h.activeTask)
 	}
 	h.activeTask = nil
-	h.logResponse(resp)
+	if resp != nil {
+		h.logResponse(resp)
+	}
 	return err
 }
 
@@ -130,10 +136,10 @@ func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) e
 // Shut down the server, saving any currently active task beforehand.
 func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	// This causes the main loop to exit at the next iteration.
-	// Note that the channel needs to be buffered to avoid deadlocking here.
-	h.shutdownChan <- struct{}{}
+	// This causes the server's main loop to exit at the next iteration.
+	close(h.shutdownChan)
 	lastActive := h.activeTask
+	// TODO: When responding to a request, this should be returned somehow.
 	err := h.StopCurrentTask(req, resp)
 	*resp = msg.ShutdownResponse(lastActive, err)
 	h.logResponse(resp)
