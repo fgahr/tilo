@@ -20,6 +20,7 @@ type RequestHandler struct {
 	listeners    []*notificationListener // Listeners for task change notifications
 }
 
+// Create a fresh request handler with the given configuration and connections.
 func newRequestHandler(conf *config.Params, shutdownChan chan struct{}, backend *db.Backend) *RequestHandler {
 	return &RequestHandler{
 		conf:         conf,
@@ -31,6 +32,8 @@ func newRequestHandler(conf *config.Params, shutdownChan chan struct{}, backend 
 }
 
 // Close the request handler, shutting down the backend.
+// NOTE: Exporting this method trips up the rpc server and we don't need to
+// satisfy the Closer interface.
 func (h *RequestHandler) close() error {
 	if len(h.listeners) > 0 {
 		log.Println("Disconnecting listeners")

@@ -6,9 +6,24 @@ but other unix-likes might work, too. There is no reason communication
 can't be done through a tcp socket and it's easy to change. Hopefully, this
 will be configurable at some point.
 
-For now, this is mainly meant as a personal learning project and is very much
+The socket is `/tmp/tilo$UID/server` when the server is running, where the
+directory is accessible for the operating user only. For now this is the only
+authentication method employed. This scheme is inspired by emacs. In case of
+an unrecovered panic the server may fail to clean up the temporary directory.
+Either remove it by hand or use the cleanup script at the repository root.
+
+For now, `tilo` is mainly meant as a personal learning project and is very much
 incomplete. That being said, I intend to use it and fix/improve it as necessary.
 Feel free to point out any mistakes I made.
+
+# Listeners
+To be notified about task changes, server shutdown, etc. a program can establish
+a connection to the `notify` socket (next to the server socket). This is intended
+to be used by other programs that depend on the current task. The format is not
+yet set in stone.
+
+Sample output can be gathered with the `tilo listen` command. This way it can also
+be used in e.g. shell scripts.
 
 # Bugs
 There are a few that I'm aware of and many more yet unbeknownst to me. Feel

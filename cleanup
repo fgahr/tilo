@@ -3,7 +3,4 @@
 # Remove the temporary directory created by the server in case it died without
 # cleaning up after itself.
 
-# The name of the resulting executable is the directory name.
-PROGNAME="$(pwd | xargs basename)"
-
-rm -rf "${TMPDIR:-/tmp}/${PROGNAME}${UID}"
+rm -rf "${TMPDIR:-/tmp}/tilo${UID}"
