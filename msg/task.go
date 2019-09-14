@@ -19,6 +19,11 @@ func NewTask(name string) (time.Time, *Task) {
 	return startTime, &Task{Name: name, Started: startTime, HasEnded: false}
 }
 
+func NewIdleTask() *Task {
+	t := rightNow()
+	return &Task{Name: "", Started: t, Ended: t, HasEnded: true}
+}
+
 // Stop the task.
 func (t *Task) Stop() time.Time {
 	if !t.HasEnded {
@@ -26,6 +31,10 @@ func (t *Task) Stop() time.Time {
 		t.HasEnded = true
 	}
 	return t.Ended
+}
+
+func (t *Task) IsRunning() bool {
+	return !t.HasEnded
 }
 
 // The current local time, truncated to seconds.

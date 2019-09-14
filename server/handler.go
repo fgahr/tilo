@@ -14,11 +14,21 @@ import (
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
+	conf         *config.Params          // Configuration parameters for this instance
 	shutdownChan chan struct{}           // Channel to broadcast server shutdown
 	activeTask   *msg.Task               // The currently active task, if any
 	backend      *db.Backend             // Database connection
-	conf         *config.Params          // Configuration parameters for this instance
 	listeners    []*notificationListener // Listeners for task change notifications
+}
+
+func newRequestHandler(conf *config.Params, shutdownChan chan struct{}, backend *db.Backend) *RequestHandler {
+	return &RequestHandler{
+		conf:         conf,
+		shutdownChan: shutdownChan,
+		activeTask:   msg.NewIdleTask(),
+		backend:      backend,
+		listeners:    []*notificationListener{},
+	}
 }
 
 // Close the request handler, shutting down the backend.
@@ -97,18 +107,18 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	if resp != nil {
 		h.logRequest(req)
 	}
-	if h.activeTask == nil && resp != nil {
+	if !h.activeTask.IsRunning() && resp != nil {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
 	endTime := h.activeTask.Stop()
-	// NOTE: Delegating to a goroutine might cause problems when shutting down
+	// NOTE: Delegating to a goroutine might cause problems when shutting down,
+	// therefore notify sequentially.
 	h.notifyListeners(Notification{"", endTime})
 	err := h.backend.Save(h.activeTask)
 	if resp != nil {
 		*resp = msg.StoppedTaskResponse(h.activeTask)
 	}
-	h.activeTask = nil
 	if resp != nil {
 		h.logResponse(resp)
 	}
@@ -118,10 +128,10 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 // Respond about the currently active task.
 func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	if h.activeTask == nil {
-		*resp = msg.ErrorResponse(errors.New("No active task"))
-	} else {
+	if h.activeTask.IsRunning() {
 		*resp = msg.CurrentTaskResponse(h.activeTask)
+	} else {
+		*resp = msg.ErrorResponse(errors.New("No active task"))
 	}
 	h.logResponse(resp)
 	return nil
@@ -131,14 +141,13 @@ func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) err
 // its details.
 func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	if h.activeTask == nil {
+	if !h.activeTask.IsRunning() {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
 	endTime := h.activeTask.Stop()
 	h.notifyListeners(Notification{"", endTime})
 	aborted := h.activeTask
-	h.activeTask = nil
 	*resp = msg.AbortedTaskResponse(aborted)
 	h.logResponse(resp)
 	return nil

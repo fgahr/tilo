@@ -78,28 +78,23 @@ func ensureDirExists(dir string) error {
 
 // Start the server, initiating required connections.
 func (s *server) init() error {
-	running, err := IsRunning(s.conf)
-	if err != nil {
+	if running, err := IsRunning(s.conf); err != nil {
 		return err
-	}
-
-	if running {
+	} else if running {
 		return errors.New("Cannot start server: Already running.")
 	}
 
 	s.shutdownChan = make(chan struct{})
 
 	// Create directories if necessary
-	err = ensureDirExists(s.conf.ConfDir)
-	if err != nil {
-		return err
-	}
-	err = ensureDirExists(s.conf.TempDir)
-	if err != nil {
+	if err := ensureDirExists(s.conf.ConfDir); err != nil {
 		return err
 	}
 
-	handler := RequestHandler{conf: s.conf, shutdownChan: s.shutdownChan, activeTask: nil}
+	if err := ensureDirExists(s.conf.TempDir); err != nil {
+		return err
+	}
+
 	// Establish database connection.
 	backend, err := db.NewBackend(s.conf)
 	if err != nil {
@@ -108,8 +103,9 @@ func (s *server) init() error {
 		return err
 	}
 
-	handler.backend = backend
-	s.handler = &handler
+	// Hand backend over to request handler.
+	handler := newRequestHandler(s.conf, s.shutdownChan, backend)
+	s.handler = handler
 
 	// Open request socket.
 	requestListener, err := net.Listen("unix", s.conf.RequestSocket())
