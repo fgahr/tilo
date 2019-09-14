@@ -123,7 +123,7 @@ func (s *server) init() error {
 
 	// Configure endpoint for remote procedure calls.
 	rpcEndpoint := rpc.NewServer()
-	rpcEndpoint.Register(&handler)
+	rpcEndpoint.Register(handler)
 	s.rpcEndpoint = rpcEndpoint
 
 	return nil
@@ -201,8 +201,8 @@ func (s *server) serveNotificationConnection(conn net.Conn) {
 func (s *server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
-	if s.handler.activeTask != nil {
-		log.Println("Aborting current task:", s.handler.activeTask.Name)
+	if s.handler.currentTask.IsRunning() {
+		log.Println("Aborting current task:", s.handler.currentTask.Name)
 		err = s.handler.StopCurrentTask(msg.Request{}, nil)
 		if err != nil {
 			log.Println(err)

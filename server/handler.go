@@ -8,7 +8,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"log"
-	"time"
 )
 
 // Handler for all client requests. Exported functions are intended for
@@ -16,7 +15,7 @@ import (
 type RequestHandler struct {
 	conf         *config.Params          // Configuration parameters for this instance
 	shutdownChan chan struct{}           // Channel to broadcast server shutdown
-	activeTask   *msg.Task               // The currently active task, if any
+	currentTask  *msg.Task               // The currently active task, if any
 	backend      *db.Backend             // Database connection
 	listeners    []*notificationListener // Listeners for task change notifications
 }
@@ -25,7 +24,7 @@ func newRequestHandler(conf *config.Params, shutdownChan chan struct{}, backend 
 	return &RequestHandler{
 		conf:         conf,
 		shutdownChan: shutdownChan,
-		activeTask:   msg.NewIdleTask(),
+		currentTask:  msg.NewIdleTask(),
 		backend:      backend,
 		listeners:    []*notificationListener{},
 	}
@@ -64,6 +63,7 @@ func (h *RequestHandler) registerListener(lst *notificationListener) {
 	log.Println("Registering notification listener")
 	// TODO: Make thread-safe: connections can be server concurrently!
 	h.listeners = append(h.listeners, lst)
+	lst.notify(taskNotification(h.currentTask))
 }
 
 // Send a notification to all registered listeners.
@@ -87,17 +87,16 @@ func (h *RequestHandler) notifyListeners(ntf Notification) {
 func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
 	taskName := req.Tasks[0]
-	oldTask := h.activeTask
+	oldTask := h.currentTask
 	if oldTask != nil {
 		err := h.StopCurrentTask(req, resp)
 		if err != nil {
 			return errors.Wrap(err, "Stopping previous timer failed")
 		}
 	}
-	var startTime time.Time
-	startTime, h.activeTask = msg.NewTask(taskName)
-	h.notifyListeners(Notification{taskName, startTime})
-	*resp = msg.StartTaskResponse(h.activeTask, oldTask)
+	h.currentTask = msg.NewTask(taskName)
+	h.notifyListeners(taskNotification(h.currentTask))
+	*resp = msg.StartTaskResponse(h.currentTask, oldTask)
 	h.logResponse(resp)
 	return nil
 }
@@ -107,17 +106,17 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	if resp != nil {
 		h.logRequest(req)
 	}
-	if !h.activeTask.IsRunning() && resp != nil {
+	if !h.currentTask.IsRunning() && resp != nil {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
-	endTime := h.activeTask.Stop()
+	endTime := h.currentTask.Stop()
 	// NOTE: Delegating to a goroutine might cause problems when shutting down,
 	// therefore notify sequentially.
 	h.notifyListeners(Notification{"", endTime})
-	err := h.backend.Save(h.activeTask)
+	err := h.backend.Save(h.currentTask)
 	if resp != nil {
-		*resp = msg.StoppedTaskResponse(h.activeTask)
+		*resp = msg.StoppedTaskResponse(h.currentTask)
 	}
 	if resp != nil {
 		h.logResponse(resp)
@@ -128,8 +127,8 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 // Respond about the currently active task.
 func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	if h.activeTask.IsRunning() {
-		*resp = msg.CurrentTaskResponse(h.activeTask)
+	if h.currentTask.IsRunning() {
+		*resp = msg.CurrentTaskResponse(h.currentTask)
 	} else {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 	}
@@ -141,13 +140,13 @@ func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) err
 // its details.
 func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
-	if !h.activeTask.IsRunning() {
+	if !h.currentTask.IsRunning() {
 		*resp = msg.ErrorResponse(errors.New("No active task"))
 		return nil
 	}
-	endTime := h.activeTask.Stop()
+	endTime := h.currentTask.Stop()
 	h.notifyListeners(Notification{"", endTime})
-	aborted := h.activeTask
+	aborted := h.currentTask
 	*resp = msg.AbortedTaskResponse(aborted)
 	h.logResponse(resp)
 	return nil
@@ -158,7 +157,7 @@ func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) err
 	h.logRequest(req)
 	// This causes the server's main loop to exit at the next iteration.
 	close(h.shutdownChan)
-	lastActive := h.activeTask
+	lastActive := h.currentTask
 	// TODO: When responding to a request, this should be returned somehow.
 	err := h.StopCurrentTask(req, resp)
 	*resp = msg.ShutdownResponse(lastActive, err)

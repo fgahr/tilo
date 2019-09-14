@@ -14,9 +14,8 @@ type Task struct {
 }
 
 // Initiate a new task, started just now.
-func NewTask(name string) (time.Time, *Task) {
-	startTime := rightNow()
-	return startTime, &Task{Name: name, Started: startTime, HasEnded: false}
+func NewTask(name string) *Task {
+	return &Task{Name: name, Started: rightNow(), HasEnded: false}
 }
 
 func NewIdleTask() *Task {
