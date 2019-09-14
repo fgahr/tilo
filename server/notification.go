@@ -8,8 +8,8 @@ import (
 
 // The notification to send to listeners.
 type Notification struct {
-	Task  string    // The name of the task; empty if idle
-	Since time.Time // Time of the last status change, formatted
+	Task  string    `json:"task"` // The name of the task; empty if idle
+	Since time.Time `json:"since"` // Time of the last status change, formatted
 }
 
 // An entity awaiting notifications about task changes.
@@ -37,6 +37,7 @@ func (lst *notificationListener) notify(ntf Notification) error {
 	if err != nil {
 		panic(err)
 	}
+	data = append(data, '\n')
 	_, err = lst.conn.Write(data)
 	return err
 }
