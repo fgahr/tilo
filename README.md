@@ -79,12 +79,6 @@ Quantified parameters (can take several, comma-separated quantifiers):
     --between=d1,d2     Activity between two days, each given as YYYY-MM-DD
 ```
 
-# Future Features
-Since this is a project for personal learning, I may add more features than
-are necessary.
-
-## GUI
-There is already a branch which features a system tray widget to display the
-server's current status (logging|not logging). But since qt is somewhat
-unwieldy in terms of installation, compilation, and resulting binary size, this
-is not on the master branch.
+# GUI
+A system tray icon displaying the current server status can be found here:
+https://github.com/fgahr/tilo-systray
