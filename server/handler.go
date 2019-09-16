@@ -90,8 +90,7 @@ func (h *RequestHandler) notifyListeners(ntf Notification) {
 func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
 	taskName := req.Tasks[0]
-	oldTask := h.currentTask
-	if oldTask != nil {
+	if h.currentTask.IsRunning() {
 		err := h.StopCurrentTask(req, resp)
 		if err != nil {
 			return errors.Wrap(err, "Stopping previous timer failed")
@@ -99,7 +98,7 @@ func (h *RequestHandler) StartTask(req msg.Request, resp *msg.Response) error {
 	}
 	h.currentTask = msg.NewTask(taskName)
 	h.notifyListeners(taskNotification(h.currentTask))
-	*resp = msg.StartTaskResponse(h.currentTask, oldTask)
+	resp.AddStartedTask(h.currentTask)
 	h.logResponse(resp)
 	return nil
 }
@@ -110,7 +109,7 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 		h.logRequest(req)
 	}
 	if !h.currentTask.IsRunning() && resp != nil {
-		*resp = msg.ErrorResponse(errors.New("No active task"))
+		resp.SetError(errors.New("No active task"))
 		return nil
 	}
 	endTime := h.currentTask.Stop()
@@ -119,9 +118,7 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 	h.notifyListeners(Notification{"", endTime})
 	err := h.backend.Save(h.currentTask)
 	if resp != nil {
-		*resp = msg.StoppedTaskResponse(h.currentTask)
-	}
-	if resp != nil {
+		resp.AddStoppedTask(h.currentTask)
 		h.logResponse(resp)
 	}
 	return err
@@ -131,9 +128,9 @@ func (h *RequestHandler) StopCurrentTask(req msg.Request, resp *msg.Response) er
 func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
 	if h.currentTask.IsRunning() {
-		*resp = msg.CurrentTaskResponse(h.currentTask)
+		resp.AddCurrentTask(h.currentTask)
 	} else {
-		*resp = msg.ErrorResponse(errors.New("No active task"))
+		resp.SetError(errors.New("No active task"))
 	}
 	h.logResponse(resp)
 	return nil
@@ -144,13 +141,13 @@ func (h *RequestHandler) GetCurrentTask(req msg.Request, resp *msg.Response) err
 func (h *RequestHandler) AbortCurrentTask(req msg.Request, resp *msg.Response) error {
 	h.logRequest(req)
 	if !h.currentTask.IsRunning() {
-		*resp = msg.ErrorResponse(errors.New("No active task"))
+		resp.SetError(errors.New("No active task"))
 		return nil
 	}
 	endTime := h.currentTask.Stop()
 	h.notifyListeners(Notification{"", endTime})
 	aborted := h.currentTask
-	*resp = msg.AbortedTaskResponse(aborted)
+	resp.AddAbortedTask(aborted)
 	h.logResponse(resp)
 	return nil
 }
@@ -160,10 +157,14 @@ func (h *RequestHandler) ShutdownServer(req msg.Request, resp *msg.Response) err
 	h.logRequest(req)
 	// This causes the server's main loop to exit at the next iteration.
 	close(h.shutdownChan)
-	lastActive := h.currentTask
-	// TODO: When responding to a request, this should be returned somehow.
+	// If the channel has already been closed due to other events, proceed.
+	if r := recover(); r != nil {
+		log.Println(r)
+	}
 	err := h.StopCurrentTask(req, resp)
-	*resp = msg.ShutdownResponse(lastActive, err)
+	// The above call may undeservedly set the error status
+	resp.Status = msg.RespSuccess
+	resp.SetError(err)
 	h.logResponse(resp)
 	h.notifyListeners(shutdownNotification())
 	return nil

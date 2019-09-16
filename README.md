@@ -55,7 +55,7 @@ Simple commands (may start server in background):
     stop                Stop the current task, log the time
     abort               Stop the current task without logging it
     shutdown            Shut down the server. The current task will be logged
-    listen              Register as a notification listener, print notifications.
+    listen              Register as a notification listener, print notifications
 
 Query command: query <tasks> <params> Query the database
     tasks: A comma-separated list of task names (no spaces!), --all to get all tasks

@@ -20,6 +20,7 @@ const (
 // Type repserenting a server's response to a client's request.
 type Response struct {
 	Status string
+	Error  string
 	Body   [][]string
 }
 
@@ -30,52 +31,6 @@ type Summary struct {
 	Total   time.Duration
 	Start   time.Time
 	End     time.Time
-}
-
-// A response informing about an error that occured.
-func ErrorResponse(err error) Response {
-	resp := Response{Status: RespError}
-	resp.addToBody(line(err.Error()))
-	return resp
-}
-
-// A response informing about receiving and complying to a shutdown request.
-func ShutdownResponse(task *Task, err error) Response {
-	resp := Response{Status: RespSuccess}
-	resp.addToBody(line("Received shutdown request -- shutting down"))
-	if err != nil {
-		resp.addToBody(line(err.Error()))
-	} else if task != nil {
-		resp.addTaskDescription("Stopped", task)
-	}
-	return resp
-}
-
-// A response informing that newTask has been started, superseding oldTask.
-func StartTaskResponse(newTask *Task, oldTask *Task) Response {
-	resp := Response{Status: RespSuccess}
-	resp.addTaskDescription("Now", newTask)
-	if oldTask != nil {
-		resp.addTaskDescription("Stopped", oldTask)
-	}
-	return resp
-}
-
-// A response informing about a currently running task.
-func CurrentTaskResponse(task *Task) Response {
-	resp := Response{Status: RespSuccess}
-	resp.addTaskDescription("Currently", task)
-	return resp
-}
-
-// A response informing that a task has been stopped.
-func StoppedTaskResponse(task *Task) Response {
-	return stopWithTag("Previously", task)
-}
-
-// A response informing that a task has been aborted.
-func AbortedTaskResponse(task *Task) Response {
-	return stopWithTag("Aborted", task)
 }
 
 // Create a response containing the given query summaries.
@@ -108,37 +63,75 @@ func QueryResponse(summaries []Summary) Response {
 	return resp
 }
 
-// A stop response for a task, featuring the given tag.
-func stopWithTag(tag string, task *Task) Response {
+func (r *Response) SetError(err error) {
+	if err == nil {
+		return
+	}
+
+	if r.Status != RespError {
+		r.Status = RespError
+	}
+	r.Error = err.Error()
+}
+
+func (r *Response) statusIsSet() bool {
+	return r.Status != ""
+}
+
+func (r *Response) AddCurrentTask(task *Task) {
+	if task.HasEnded {
+		panic("Task not running but should be reported as started!")
+	}
+	r.addTaskWithDescription("Currently", task)
+}
+
+func (r *Response) AddStartedTask(task *Task) {
+	if task.HasEnded {
+		panic("Task not running but should be reported as started!")
+	}
+	r.addTaskWithDescription("Now", task)
+}
+
+func (r *Response) AddStoppedTask(task *Task) {
 	if !task.HasEnded {
 		panic("Task needs to end before responding to stop!")
 	}
-	resp := Response{Status: RespSuccess}
-	resp.addTaskDescription(tag, task)
-	return resp
+	r.addTaskWithDescription("Stopped", task)
+}
+
+func (r *Response) AddAbortedTask(task *Task) {
+	if !task.HasEnded {
+		panic("Task needs to end before responding to abort!")
+	}
+	r.addTaskWithDescription("Aborted", task)
+}
+
+func (r *Response) addTaskWithDescription(description string, task *Task) {
+	if task == nil {
+		return
+	}
+	if !r.statusIsSet() {
+		r.Status = RespSuccess
+	}
+	if task.HasEnded {
+		r.addToBody(
+			line(description, "Since", "Until"),
+			line(task.Name, formatTime(task.Started), formatTime(task.Ended)),
+		)
+	} else {
+		r.addToBody(
+			line(description, "Since"),
+			line(task.Name, formatTime(task.Started)),
+		)
+	}
 }
 
 // The error encapsulated in the response, if any.
 func (r Response) Err() error {
 	if r.Status == RespError {
-		return errors.Errorf("%s", r.Body[0][0])
+		return errors.New(r.Error)
 	}
 	return nil
-}
-
-// Add data describing a task to the response body.
-func (r *Response) addTaskDescription(tag string, task *Task) {
-	if task.HasEnded {
-		r.addToBody(
-			line(tag, "Since", "Until"),
-			line(task.Name, formatTime(task.Started), formatTime(task.Ended)),
-		)
-	} else {
-		r.addToBody(
-			line(tag, "Since"),
-			line(task.Name, formatTime(task.Started)),
-		)
-	}
 }
 
 // Add the given lines to the response body.
