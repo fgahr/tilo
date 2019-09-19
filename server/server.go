@@ -20,7 +20,7 @@ import (
 // are filled by the .init() method.
 type Server struct {
 	shutdownChan    chan struct{}   // Used to communicate shutdown requests
-	conf            *config.Params  // Configuration parameters for this instance
+	conf            *config.Opts  // Configuration parameters for this instance
 	handler         *RequestHandler // Client request handler
 	rpcEndpoint     *rpc.Server     // Server for RPC requests
 	reqSockListener net.Listener    // Listener on the client request socket
@@ -29,7 +29,7 @@ type Server struct {
 
 // Start server operation.
 // This function will block until server shutdown.
-func Run(conf *config.Params) error {
+func Run(conf *config.Opts) error {
 	s := newServer(conf)
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
@@ -44,14 +44,14 @@ func Run(conf *config.Params) error {
 }
 
 // Create and configure a new server.
-func newServer(conf *config.Params) *Server {
+func newServer(conf *config.Opts) *Server {
 	s := new(Server)
 	s.conf = conf
 	return s
 }
 
 // Check whether the server is running.
-func IsRunning(params *config.Params) (bool, error) {
+func IsRunning(params *config.Opts) (bool, error) {
 	_, err := os.Stat(params.RequestSocket())
 	if os.IsNotExist(err) {
 		return false, nil
@@ -245,7 +245,7 @@ func (s *Server) shutdown() {
 }
 
 // Start a server in a background process.
-func StartInBackground(params *config.Params) error {
+func StartInBackground(params *config.Opts) error {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
 	err := ensureDirExists(params.ConfDir)

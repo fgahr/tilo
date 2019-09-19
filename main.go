@@ -102,7 +102,7 @@ func main() {
 }
 
 // Print server notifications to stdout.
-func printServerNotifications(conf *config.Params) {
+func printServerNotifications(conf *config.Opts) {
 	c, err := client.NewClient(conf)
 	if err != nil {
 		log.Fatal(err)
@@ -114,7 +114,7 @@ func printServerNotifications(conf *config.Params) {
 }
 
 // Handle client functionality, parsing the relevant arguments.
-func handleClientArgs(clientArgs []string, conf *config.Params) error {
+func handleClientArgs(clientArgs []string, conf *config.Opts) error {
 	requireArgs(clientArgs, 1)
 	c, err := client.NewClient(conf)
 	if err != nil {

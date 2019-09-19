@@ -13,7 +13,7 @@ import (
 // Handler for all client requests. Exported functions are intended for
 // RPC calls, so they have to satisfy the criteria.
 type RequestHandler struct {
-	conf         *config.Params          // Configuration parameters for this instance
+	conf         *config.Opts          // Configuration parameters for this instance
 	shutdownChan chan struct{}           // Channel to broadcast server shutdown
 	currentTask  *msg.Task               // The currently active task, if any
 	backend      *db.Backend             // Database connection
@@ -21,7 +21,7 @@ type RequestHandler struct {
 }
 
 // Create a fresh request handler with the given configuration and connections.
-func newRequestHandler(conf *config.Params, shutdownChan chan struct{}, backend *db.Backend) *RequestHandler {
+func newRequestHandler(conf *config.Opts, shutdownChan chan struct{}, backend *db.Backend) *RequestHandler {
 	return &RequestHandler{
 		conf:         conf,
 		shutdownChan: shutdownChan,

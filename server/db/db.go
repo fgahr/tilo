@@ -16,12 +16,12 @@ import (
 
 // Type representing a database backend. At this point, only Sqlite is supported.
 type Backend struct {
-	conf *config.Params
+	conf *config.Opts
 	db   *sql.DB
 }
 
 // Create a new backend based on conf.
-func NewBackend(conf *config.Params) (*Backend, error) {
+func NewBackend(conf *config.Opts) (*Backend, error) {
 	backend := new(Backend)
 	backend.conf = conf
 	return backend, backend.init()

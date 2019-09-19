@@ -13,7 +13,7 @@ const (
 )
 
 // Configuration parameters.
-type Params struct {
+type Opts struct {
 	ConfDir     string // Where to keep the DB file.
 	TempDir     string // Where to keep the domain socket.
 	DBFileName  string // The name of the DB file.
@@ -23,29 +23,29 @@ type Params struct {
 }
 
 // The socket to use for requests to the server.
-func (p *Params) RequestSocket() string {
+func (p *Opts) RequestSocket() string {
 	return filepath.Join(p.TempDir, p.ReqSockName)
 }
 
 // The socket to connect to for notification task changes.
-func (p *Params) NotificationSocket() string {
+func (p *Opts) NotificationSocket() string {
 	return filepath.Join(p.TempDir, p.NtfSockName)
 }
 
 // The database file used by SQLite.
-func (p *Params) DBFile() string {
+func (p *Opts) DBFile() string {
 	return filepath.Join(p.ConfDir, p.DBFileName)
 }
 
 // Create a set of default parameters.
-func DefaultConfig() (*Params, error) {
+func DefaultConfig() (*Opts, error) {
 	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", "tilo", os.Getuid()))
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 	confDir := filepath.Join(homeDir, ".config", "tilo")
-	return &Params{
+	return &Opts{
 		ConfDir:     confDir,
 		TempDir:     tempDir,
 		DBFileName:  "tilo.db",

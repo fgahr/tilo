@@ -21,13 +21,13 @@ import (
 type Client struct {
 	conn           net.Conn       // Connection to the communication socket
 	requestTimeout time.Duration  // Timeout for requests
-	Conf           *config.Params // Configuration for this process
+	Conf           *config.Opts // Configuration for this process
 	rpcClient      *rpc.Client    // RPC Client to call server-side functions
 	err            error          // Any error that may have occured
 }
 
 // Create a new client to communicate with the server.
-func NewClient(params *config.Params) (*Client, error) {
+func NewClient(params *config.Opts) (*Client, error) {
 	c := Client{
 		conn:           nil,
 		requestTimeout: 5 * time.Second,
