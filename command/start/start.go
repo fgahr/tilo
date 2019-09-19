@@ -34,7 +34,7 @@ func (s StartOperation) ClientExec(conf *config.Opts, args ...string) error {
 	return nil
 }
 
-func (s StartOperation) ServerExec(srv *server.Server, command command.Command, resp *msg.Response) error {
+func (s StartOperation) ServerExec(srv *server.Server, command command.Cmd, resp *msg.Response) error {
 	// TODO
 	return nil
 }

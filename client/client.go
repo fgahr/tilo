@@ -2,9 +2,10 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/command"
+	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
@@ -20,16 +21,29 @@ import (
 // A struct holding a connection to the server and performing communication
 // with it.
 type Client struct {
-	conn           net.Conn       // Connection to the communication socket
-	requestTimeout time.Duration  // Timeout for requests
-	Conf           *config.Opts // Configuration for this process
-	rpcClient      *rpc.Client    // RPC Client to call server-side functions
-	err            error          // Any error that may have occured
+	conn           net.Conn      // Connection to the communication socket
+	requestTimeout time.Duration // Timeout for requests
+	Conf           *config.Opts  // Configuration for this process
+	rpcClient      *rpc.Client   // RPC Client to call server-side functions
+	err            error         // Any error that may have occured
 }
 
+// Send the command to the server, receive the response.
 func SendToServer(conf *config.Opts, cmd command.Cmd) (msg.Response, error) {
-	// TODO
-	return msg.Response{}, nil
+	resp := msg.Response{}
+	conn, err := net.Dial("unix", conf.NotificationSocket())
+	if err != nil {
+		return resp, errors.Wrap(err, "Cannot connect to socket")
+	}
+	enc := json.NewEncoder(conn)
+	dec := json.NewDecoder(conn)
+	if err = enc.Encode(cmd); err != nil {
+		return resp, errors.Wrap(err, "Failed to encode command")
+	}
+	if err = dec.Decode(&resp); err != nil {
+		return resp, errors.Wrap(err, "Failed to decode response")
+	}
+	return resp, nil
 }
 
 // Create a new client to communicate with the server.
