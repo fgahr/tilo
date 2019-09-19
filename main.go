@@ -4,12 +4,14 @@ package main
 import (
 	"fmt"
 	"github.com/fgahr/tilo/client"
+	"github.com/fgahr/tilo/cmd"
+	_ "github.com/fgahr/tilo/cmd/start"
 	"github.com/fgahr/tilo/config"
-	"github.com/fgahr/tilo/server"
+	// "github.com/fgahr/tilo/server"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
+	// "os/signal"
+	// "syscall"
 )
 
 // Print usage information for this program.
@@ -72,33 +74,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	if os.Args[1] == "-h" || os.Args[1] == "--help" {
-		printUsage()
-		os.Exit(0)
-	}
-
+	// TODO: Parse config-related options?
 	conf, err := config.DefaultConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// NOTE: This is mostly for debugging purposes.
-	if os.Args[1] == "listen" {
-		printServerNotifications(conf)
-	}
+	cmd.ExecuteClientOperation(conf, args)
 
-	// "server run" and "server start" do not involve requests
-	if len(args) > 1 && args[0] == "server" && args[1] == "run" {
-		signal.Ignore(syscall.SIGHUP)
-		err = server.Run(conf)
-	} else if len(args) > 1 && args[0] == "server" && args[1] == "start" {
-		err = server.StartInBackground(conf)
-	} else {
-		err = handleClientArgs(args, conf)
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	// // NOTE: This is mostly for debugging purposes.
+	// if os.Args[1] == "listen" {
+	//	printServerNotifications(conf)
+	// }
+
+	// // "server run" and "server start" do not involve requests
+	// if len(args) > 1 && args[0] == "server" && args[1] == "run" {
+	//	signal.Ignore(syscall.SIGHUP)
+	//	err = server.Run(conf)
+	// } else if len(args) > 1 && args[0] == "server" && args[1] == "start" {
+	//	err = server.StartInBackground(conf)
+	// } else {
+	//	err = handleClientArgs(args, conf)
+	// }
+	// if err != nil {
+	//	log.Fatal(err)
+	// }
 }
 
 // Print server notifications to stdout.
