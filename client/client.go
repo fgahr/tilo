@@ -4,6 +4,7 @@ package client
 import (
 	"fmt"
 	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
@@ -24,6 +25,11 @@ type Client struct {
 	Conf           *config.Opts // Configuration for this process
 	rpcClient      *rpc.Client    // RPC Client to call server-side functions
 	err            error          // Any error that may have occured
+}
+
+func SendToServer(conf *config.Opts, cmd command.Cmd) (msg.Response, error) {
+	// TODO
+	return msg.Response{}, nil
 }
 
 // Create a new client to communicate with the server.

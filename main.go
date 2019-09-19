@@ -4,8 +4,8 @@ package main
 import (
 	"fmt"
 	"github.com/fgahr/tilo/client"
-	"github.com/fgahr/tilo/cmd"
-	_ "github.com/fgahr/tilo/cmd/start"
+	"github.com/fgahr/tilo/command"
+	_ "github.com/fgahr/tilo/command/start"
 	"github.com/fgahr/tilo/config"
 	// "github.com/fgahr/tilo/server"
 	"log"
@@ -80,7 +80,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cmd.ExecuteClientOperation(conf, args)
+	command.ExecuteClient(conf, args)
 
 	// // NOTE: This is mostly for debugging purposes.
 	// if os.Args[1] == "listen" {

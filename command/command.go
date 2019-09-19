@@ -1,5 +1,5 @@
 // Package for commands to the server
-package cmd
+package command
 
 import (
 	"github.com/fgahr/tilo/config"
@@ -37,7 +37,7 @@ func RegisterOperation(op Operation) {
 	operations[op.Command()] = op
 }
 
-func ExecuteClientOperation(conf *config.Opts, args []string) error {
+func ExecuteClient(conf *config.Opts, args []string) error {
 	if len(args) == 0 {
 		panic("Empty argument list")
 	}
@@ -49,7 +49,7 @@ func ExecuteClientOperation(conf *config.Opts, args []string) error {
 	return op.ClientExec(conf, args[1:]...)
 }
 
-func ExecuteServerOperation(srv *server.Server, cmd Cmd) (msg.Response, error) {
+func ExecuteServer(srv *server.Server, cmd Cmd) (msg.Response, error) {
 	resp := msg.Response{}
 	command := cmd.Op
 	op := operations[command]
