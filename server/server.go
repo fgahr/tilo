@@ -16,9 +16,9 @@ import (
 	"syscall"
 )
 
-// A tilo server. When the configuration is provided, the remaining fields
+// A tilo Server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
-type server struct {
+type Server struct {
 	shutdownChan    chan struct{}   // Used to communicate shutdown requests
 	conf            *config.Params  // Configuration parameters for this instance
 	handler         *RequestHandler // Client request handler
@@ -44,8 +44,8 @@ func Run(conf *config.Params) error {
 }
 
 // Create and configure a new server.
-func newServer(conf *config.Params) *server {
-	s := new(server)
+func newServer(conf *config.Params) *Server {
+	s := new(Server)
 	s.conf = conf
 	return s
 }
@@ -62,7 +62,7 @@ func IsRunning(params *config.Params) (bool, error) {
 }
 
 // Check whether the server is currently in shutdown.
-func (s *server) shuttingDown() bool {
+func (s *Server) shuttingDown() bool {
 	select {
 	case <-s.shutdownChan:
 		return true
@@ -77,7 +77,7 @@ func ensureDirExists(dir string) error {
 }
 
 // Start the server, initiating required connections.
-func (s *server) init() error {
+func (s *Server) init() error {
 	if running, err := IsRunning(s.conf); err != nil {
 		return err
 	} else if running {
@@ -130,7 +130,7 @@ func (s *server) init() error {
 }
 
 // Enforce cleanup when the server stops.
-func (s *server) enforceCleanup() {
+func (s *Server) enforceCleanup() {
 	if r := recover(); r != nil {
 		log.Println("Shutting down.", r)
 	}
@@ -138,7 +138,7 @@ func (s *server) enforceCleanup() {
 }
 
 // Server main loop: process incoming requests.
-func (s *server) main() {
+func (s *Server) main() {
 	// Signal channel needs to be buffered, see documentation.
 	signalChan := make(chan os.Signal, 1)
 	reqChan := make(chan net.Conn)
@@ -171,7 +171,7 @@ MainLoop:
 }
 
 // Wait for a client to connect. Send connections to the given channel.
-func (s *server) waitForConnection(lst net.Listener, channel chan<- net.Conn) {
+func (s *Server) waitForConnection(lst net.Listener, channel chan<- net.Conn) {
 	for {
 		conn, err := lst.Accept()
 		if err != nil {
@@ -187,18 +187,18 @@ func (s *server) waitForConnection(lst net.Listener, channel chan<- net.Conn) {
 }
 
 // Receive a request from the connection and process it. Send a response back.
-func (s *server) serveRequestConnection(conn net.Conn) {
+func (s *Server) serveRequestConnection(conn net.Conn) {
 	codec := jsonrpc.NewServerCodec(conn)
 	s.rpcEndpoint.ServeCodec(codec)
 }
 
 // Serve a notification listener connection, keeping it open.
-func (s *server) serveNotificationConnection(conn net.Conn) {
+func (s *Server) serveNotificationConnection(conn net.Conn) {
 	s.handler.registerListener(&notificationListener{conn})
 }
 
 // Initiate shutdown, closing open connections.
-func (s *server) shutdown() {
+func (s *Server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
 	if s.handler.currentTask.IsRunning() {
