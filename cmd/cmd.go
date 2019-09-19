@@ -16,10 +16,13 @@ type Cmd struct {
 
 // TODO: Add help text information and create help message dynamically
 type operation interface {
-	// Perform this operation on the server, based on the contents of cmd.
-	perform(cmd Cmd, srv *server.Server, resp *msg.Response) error
-	// Encapsulate command line arguments as a command for this operation.
-	parseArguments(args []string) (Cmd, error)
+	// Execute client-side behaviour based on args
+	clientExec(args ...string) error
+	// Execute server-side behaviour based on the command
+	serverExec(srv *server.Server, cmd Cmd, resp *msg.Response) error
+	// TODO: require more structure?
+	// Documentation for this operation
+	doc() string
 }
 
 func registerOperation(command string, op operation) {
@@ -29,7 +32,7 @@ func registerOperation(command string, op operation) {
 	operations[command] = op
 }
 
-func Parse(args []string) (Cmd, error) {
+func ExecuteClientOperation(args []string) error {
 	if len(args) == 0 {
 		panic("Empty argument list")
 	}
@@ -38,13 +41,21 @@ func Parse(args []string) (Cmd, error) {
 	if op == nil {
 		panic("No such command: " + command)
 	}
-	return op.parseArguments(args[1:])
+	return op.clientExec(args[1:]...)
 }
 
-func ExecuteCommand(cmd Cmd, srv *server.Server, resp *msg.Response) error {
-	op := operations[cmd.Op]
+func ExecuteServerOperation(srv *server.Server, cmd Cmd) (msg.Response, error) {
+	resp := msg.Response{}
+	command := cmd.Op
+	op := operations[command]
 	if op == nil {
-		return errors.Errorf("No such operation: %s", cmd.Op)
+		return resp, errors.New("No such operation: " + command)
 	}
-	return errors.Wrap(op.perform(cmd, srv, resp), "Command execution failed")
+	err := op.serverExec(srv, cmd, &resp)
+	return resp, err
+}
+
+func DescribeOperations() string {
+	// TODO: Define operation groups?
+	return "TODO"
 }
