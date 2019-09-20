@@ -62,7 +62,7 @@ func (b *Backend) Save(task msg.Task) error {
 	_, err := b.db.Exec(
 		"INSERT INTO task (name, started, ended) VALUES (?, ?, ?);",
 		task.Name, task.Started.Unix(), task.Ended.Unix())
-	return errors.Wrap(err, "Error while saving a task")
+	return errors.Wrapf(err, "Error while saving %v", task)
 }
 
 // Query the database based on the given query details.
