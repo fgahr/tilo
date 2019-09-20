@@ -31,7 +31,7 @@ type Client struct {
 // Send the command to the server, receive the response.
 func SendToServer(conf *config.Opts, cmd command.Cmd) (msg.Response, error) {
 	resp := msg.Response{}
-	conn, err := net.Dial("unix", conf.NotificationSocket())
+	conn, err := net.Dial("unix", conf.ServerSocket())
 	if err != nil {
 		return resp, errors.Wrap(err, "Cannot connect to socket")
 	}
@@ -65,10 +65,11 @@ func (c *Client) HandleArgs(args []string) error {
 	return c.err
 }
 
+// FIXME: Out of date, move/replace
 // Listen to notifications from the server and print them to stdout.
 func (c *Client) PrintNotifications(w io.Writer) error {
 	c.ensureServerIsRunning()
-	conn, err := net.Dial("unix", c.Conf.NotificationSocket())
+	conn, err := net.Dial("unix", c.Conf.ServerSocket())
 	if err != nil {
 		return errors.Wrap(err, "Cannot connect to socket")
 	}
@@ -101,12 +102,13 @@ func (c *Client) Close() error {
 	return c.err
 }
 
+// FIXME: Ouf of date. Move/replace
 // Establish a server connection.
 func (c *Client) connectToRequestSocket() {
 	if c.err != nil {
 		return
 	}
-	rpcClient, err := jsonrpc.Dial("unix", c.Conf.RequestSocket())
+	rpcClient, err := jsonrpc.Dial("unix", c.Conf.ServerSocket())
 	if err != nil {
 		c.err = err
 	}
@@ -132,15 +134,17 @@ func (c *Client) performRequest(fnName string, req msg.Request) {
 		c.err = err
 		return
 	} else {
-		c.err = c.printResponse(resp)
+		c.err = c.PrintResponse(resp)
 		return
 	}
 }
 
 // Print a response as formatted output.
-func (c *Client) printResponse(resp msg.Response) error {
-	// NOTE: This function could easily exist without depending on a client.
-	// However, this allows to configure the output in some way at a later date.
+func (c *Client) PrintResponse(resp msg.Response) error {
+	return PrintResponse(c.Conf, resp)
+}
+
+func PrintResponse(_ *config.Opts, resp msg.Response) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
 	for _, line := range resp.Body {
 		noTab := true

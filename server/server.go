@@ -168,7 +168,8 @@ func (s *Server) serveConnection(conn net.Conn) {
 }
 
 // Send a notification to all registered listeners.
-func (s *Server) notifyListeners(ntf Notification) {
+func (s *Server) notifyListeners() {
+	ntf := taskNotification(s.CurrentTask)
 	if s.conf.DebugLevel == config.DebugAll {
 		log.Println("Notifying listeners:", ntf)
 	}
@@ -189,12 +190,10 @@ func (s *Server) notifyListeners(ntf Notification) {
 func (s *Server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
-	if s.CurrentTask.IsRunning() {
-		err = s.StopCurrentTask(nil)
-		if err != nil {
-			log.Println(err)
-		}
-	}
+	// TODO: Handle return values, possibly include in response? Skip?
+	s.StopCurrentTask()
+
+	// TODO: Close listener connections
 
 	log.Print("Closing socket..")
 	err = s.socketListener.Close()

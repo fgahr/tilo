@@ -24,7 +24,7 @@ type Operation interface {
 	// Execute client-side behaviour based on args
 	ClientExec(conf *config.Opts, args ...string) error
 	// Execute server-side behaviour based on the command
-	ServerExec(srv *server.Server, cmd Cmd, resp *msg.Response) error
+	ServerExec(srv *server.Server, cmd Cmd, resp *msg.Response)
 	// TODO: require more structure?
 	// Documentation for this operation
 	Doc() string
@@ -56,8 +56,8 @@ func ExecuteServer(srv *server.Server, cmd Cmd) (msg.Response, error) {
 	if op == nil {
 		return resp, errors.New("No such operation: " + command)
 	}
-	err := op.ServerExec(srv, cmd, &resp)
-	return resp, err
+	op.ServerExec(srv, cmd, &resp)
+	return resp, nil
 }
 
 func DescribeOperations() string {

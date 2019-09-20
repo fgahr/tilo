@@ -13,32 +13,37 @@ type StartOperation struct {
 	// No state required
 }
 
-func (s StartOperation) Command() string {
+func (op StartOperation) Command() string {
 	return "start"
 }
 
-func (s StartOperation) ClientExec(conf *config.Opts, args ...string) error {
+func (op StartOperation) ClientExec(conf *config.Opts, args ...string) error {
 	// TODO: Parse arguments, extract task name
 	taskName := "foo"
 	clientCmd := command.Cmd{
-		Op:   s.Command(),
+		Op:   op.Command(),
 		Body: [][]string{[]string{taskName}},
 	}
-	// TODO: Print response
-	_, err := client.SendToServer(conf, clientCmd)
+	resp, err := client.SendToServer(conf, clientCmd)
 	if err != nil {
 		return errors.Wrap(err, "Failed to start task: "+taskName)
 	}
-	// TODO
-	return nil
+	return client.PrintResponse(conf, resp)
 }
 
-func (s StartOperation) ServerExec(srv *server.Server, command command.Cmd, resp *msg.Response) error {
-	// TODO
-	return nil
+func (op StartOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *msg.Response) {
+	taskName := cmd.Body[0][0]
+	task, stopped := srv.StopCurrentTask()
+	if stopped {
+		if err := srv.SaveTask(task); err != nil {
+			resp.SetError(err)
+		}
+		resp.AddStoppedTask(task)
+	}
+	srv.SetActiveTask(taskName)
 }
 
-func (s StartOperation) Doc() string {
+func (op StartOperation) Doc() string {
 	// TODO
 	return "TODO"
 }
