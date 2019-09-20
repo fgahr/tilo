@@ -78,38 +78,35 @@ func (r *Response) statusIsSet() bool {
 	return r.Status != ""
 }
 
-func (r *Response) AddCurrentTask(task *Task) {
+func (r *Response) AddCurrentTask(task Task) {
 	if task.HasEnded {
 		panic("Task not running but should be reported as started!")
 	}
 	r.addTaskWithDescription("Currently", task)
 }
 
-func (r *Response) AddStartedTask(task *Task) {
+func (r *Response) AddStartedTask(task Task) {
 	if task.HasEnded {
 		panic("Task not running but should be reported as started!")
 	}
 	r.addTaskWithDescription("Now", task)
 }
 
-func (r *Response) AddStoppedTask(task *Task) {
+func (r *Response) AddStoppedTask(task Task) {
 	if !task.HasEnded {
 		panic("Task needs to end before responding to stop!")
 	}
 	r.addTaskWithDescription("Stopped", task)
 }
 
-func (r *Response) AddAbortedTask(task *Task) {
+func (r *Response) AddAbortedTask(task Task) {
 	if !task.HasEnded {
 		panic("Task needs to end before responding to abort!")
 	}
 	r.addTaskWithDescription("Aborted", task)
 }
 
-func (r *Response) addTaskWithDescription(description string, task *Task) {
-	if task == nil {
-		return
-	}
+func (r *Response) addTaskWithDescription(description string, task Task) {
 	if !r.statusIsSet() {
 		r.Status = RespSuccess
 	}

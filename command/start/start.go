@@ -27,7 +27,6 @@ func (s StartOperation) ClientExec(conf *config.Opts, args ...string) error {
 	// TODO: Print response
 	_, err := client.SendToServer(conf, clientCmd)
 	if err != nil {
-		// TODO: Include task name
 		return errors.Wrap(err, "Failed to start task: "+taskName)
 	}
 	// TODO

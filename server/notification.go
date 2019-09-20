@@ -27,7 +27,7 @@ func shutdownNotification() Notification {
 // A notification about a task, presumed to be the currently set one.
 // If the task has been stopped, it sends an empty task name, signalling
 // idle state.
-func taskNotification(t *msg.Task) Notification {
+func taskNotification(t msg.Task) Notification {
 	if t.IsRunning() {
 		return Notification{Task: t.Name, Since: t.Started}
 	} else {

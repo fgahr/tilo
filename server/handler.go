@@ -61,14 +61,6 @@ func (h *RequestHandler) logResponse(resp *msg.Response) {
 	}
 }
 
-// Register a listener waiting for notifications.
-func (h *RequestHandler) registerListener(lst *notificationListener) {
-	log.Println("Registering notification listener")
-	// TODO: Make thread-safe: connections can be server concurrently!
-	h.listeners = append(h.listeners, lst)
-	lst.notify(taskNotification(h.currentTask))
-}
-
 // Send a notification to all registered listeners.
 func (h *RequestHandler) notifyListeners(ntf Notification) {
 	if h.conf.DebugLevel == config.DebugAll {

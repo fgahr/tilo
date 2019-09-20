@@ -55,8 +55,8 @@ func (b *Backend) Close() error {
 }
 
 // Save a task to the database, usually after stopping it first.
-func (b *Backend) Save(task *msg.Task) error {
-	if !task.HasEnded {
+func (b *Backend) Save(task msg.Task) error {
+	if task.IsRunning() {
 		panic("Cannot save an active task.")
 	}
 	_, err := b.db.Exec(

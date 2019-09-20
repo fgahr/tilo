@@ -1,4 +1,5 @@
 // Package msg provides means for client and server to communicate.
+// TODO: Move to server package? Into backend?
 package msg
 
 import (
@@ -15,8 +16,14 @@ type Task struct {
 
 // Initiate a new task, started just now.
 func NewTask(name string) *Task {
-	return &Task{Name: name, Started: rightNow(), HasEnded: false}
+	task := FreshTask(name)
+	return &task
 }
+
+func FreshTask(name string) Task {
+	return Task{Name: name, Started: rightNow(), HasEnded: false}
+}
+
 
 func NewIdleTask() *Task {
 	t := rightNow()
