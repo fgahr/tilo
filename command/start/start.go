@@ -53,6 +53,5 @@ func (op StartOperation) Help() command.Doc {
 }
 
 func init() {
-	// TODO
 	command.RegisterOperation(StartOperation{})
 }
