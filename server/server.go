@@ -19,11 +19,10 @@ import (
 type Server struct {
 	shutdownChan   chan struct{}           // Used to communicate shutdown requests
 	conf           *config.Opts            // Configuration parameters for this instance
-	Handler        *RequestHandler         // Client request handler
 	backend        *db.Backend             // The database backend
 	socketListener net.Listener            // Listener on the client request socket
 	CurrentTask    msg.Task                // The currently active task, if any
-	listeners      []*notificationListener // Listeners for task change notifications
+	listeners      []notificationListener // Listeners for task change notifications
 }
 
 // Start server operation.
@@ -173,16 +172,17 @@ func (s *Server) notifyListeners() {
 	if s.conf.DebugLevel == config.DebugAll {
 		log.Println("Notifying listeners:", ntf)
 	}
-	for i, lst := range s.listeners {
-		if lst == nil {
-			continue
+	if len(s.listeners) > 0 {
+		remainingListeners := make([]notificationListener, 0)
+		for _, lst := range s.listeners {
+			if err := lst.notify(ntf); err != nil {
+				log.Println("Could not notify listener, disconnecting:", err)
+				lst.disconnect()
+			} else {
+				remainingListeners = append(remainingListeners, lst)
+			}
 		}
-		if err := lst.notify(ntf); err != nil {
-			log.Println("Could not notify listener, disconnecting:", err)
-			lst.disconnect()
-			// TODO Actually remove from list. Another pass afterwards?
-			s.listeners[i] = nil
-		}
+		s.listeners = remainingListeners
 	}
 }
 
@@ -194,6 +194,14 @@ func (s *Server) shutdown() {
 	s.StopCurrentTask()
 
 	// TODO: Close listener connections
+	if len(s.listeners) > 0 {
+		log.Println("Disconnecting listeners")
+	}
+	for _, lst := range s.listeners {
+		if err := lst.disconnect(); err != nil {
+			log.Println("Error closing listener connection:", err)
+		}
+	}
 
 	log.Print("Closing socket..")
 	err = s.socketListener.Close()
