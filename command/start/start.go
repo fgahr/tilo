@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"net"
 )
 
 type StartOperation struct {
@@ -36,7 +37,7 @@ func (op StartOperation) ClientExec(conf *config.Opts, args ...string) error {
 	}
 }
 
-func (op StartOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *msg.Response) {
+func (op StartOperation) ServerExec(srv *server.Server, _ net.Conn, cmd command.Cmd, resp *msg.Response) {
 	taskName := cmd.Body[0][0]
 	task, stopped := srv.StopCurrentTask()
 	if stopped {

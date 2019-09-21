@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"os"
+	"net"
 )
 
 type ListenOperation struct {
@@ -34,7 +35,7 @@ func (op ListenOperation) ClientExec(conf *config.Opts, args ...string) error {
 	return err
 }
 
-func (op ListenOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *msg.Response) {
+func (op ListenOperation) ServerExec(srv *server.Server, conn net.Conn, cmd command.Cmd, resp *msg.Response) {
 	// TODO
 }
 

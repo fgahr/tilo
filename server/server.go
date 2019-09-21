@@ -22,7 +22,7 @@ type Server struct {
 	backend        *db.Backend             // The database backend
 	socketListener net.Listener            // Listener on the client request socket
 	CurrentTask    msg.Task                // The currently active task, if any
-	listeners      []notificationListener // Listeners for task change notifications
+	listeners      []NotificationListener // Listeners for task change notifications
 }
 
 // Start server operation.
@@ -173,7 +173,7 @@ func (s *Server) notifyListeners() {
 		log.Println("Notifying listeners:", ntf)
 	}
 	if len(s.listeners) > 0 {
-		remainingListeners := make([]notificationListener, 0)
+		remainingListeners := make([]NotificationListener, 0)
 		for _, lst := range s.listeners {
 			if err := lst.notify(ntf); err != nil {
 				log.Println("Could not notify listener, disconnecting:", err)

@@ -6,6 +6,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"net"
 )
 
 var operations map[string]Operation
@@ -21,7 +22,7 @@ type Doc struct {
 	ShortDescription string
 	LongDescription  string
 	Arguments        []string
-	// TODO
+	// TODO: Define proper structure
 }
 
 // TODO: Add help text information and create help message dynamically
@@ -31,8 +32,7 @@ type Operation interface {
 	// Execute client-side behaviour based on args
 	ClientExec(conf *config.Opts, args ...string) error
 	// Execute server-side behaviour based on the command
-	ServerExec(srv *server.Server, cmd Cmd, resp *msg.Response)
-	// TODO: require more structure?
+	ServerExec(srv *server.Server, conn net.Conn, cmd Cmd, resp *msg.Response)
 	// Documentation for this operation
 	Help() Doc
 }
@@ -56,13 +56,13 @@ func ExecuteClient(conf *config.Opts, args []string) error {
 	return op.ClientExec(conf, args[1:]...)
 }
 
-func ExecuteServer(srv *server.Server, cmd Cmd) (msg.Response, error) {
+func ExecuteServer(srv *server.Server, conn net.Conn, cmd Cmd) (msg.Response, error) {
 	resp := msg.Response{}
 	command := cmd.Op
 	op := operations[command]
 	if op == nil {
 		return resp, errors.New("No such operation: " + command)
 	}
-	op.ServerExec(srv, cmd, &resp)
+	op.ServerExec(srv, conn, cmd, &resp)
 	return resp, nil
 }

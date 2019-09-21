@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"net"
 )
 
 type StopOperation struct {
@@ -36,7 +37,7 @@ func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
 	return client.PrintResponse(conf, resp)
 }
 
-func (op StopOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *msg.Response) {
+func (op StopOperation) ServerExec(srv *server.Server, _ net.Conn, cmd command.Cmd, resp *msg.Response) {
 	task, stopped := srv.StopCurrentTask()
 	if stopped {
 		if err := srv.SaveTask(task); err != nil {
