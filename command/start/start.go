@@ -24,11 +24,16 @@ func (op StartOperation) ClientExec(conf *config.Opts, args ...string) error {
 		Op:   op.Command(),
 		Body: [][]string{[]string{taskName}},
 	}
-	resp, err := client.SendToServer(conf, clientCmd)
-	if err != nil {
-		return errors.Wrap(err, "Failed to start task: "+taskName)
+
+	if err := client.EnsureServerIsRunning(conf); err != nil {
+		return errors.Wrapf(err, "Cannot start task '%s'", taskName)
 	}
-	return client.PrintResponse(conf, resp)
+
+	if resp, err := client.SendToServer(conf, clientCmd); err != nil {
+		return errors.Wrapf(err, "Failed to start task '%s'", taskName)
+	} else {
+		return client.PrintResponse(conf, resp)
+	}
 }
 
 func (op StartOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *msg.Response) {

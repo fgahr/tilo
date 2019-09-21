@@ -24,6 +24,11 @@ func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
 	clientCmd := command.Cmd{
 		Op: op.Command(),
 	}
+
+	if err := client.EnsureServerIsRunning(conf); err != nil {
+		return errors.Wrap(err, "Failed to stop the current task")
+	}
+
 	resp, err := client.SendToServer(conf, clientCmd)
 	if err != nil {
 		return errors.Wrap(err, "Failed to stop the current task")

@@ -223,12 +223,12 @@ func (s *Server) shutdown() {
 }
 
 // Start a server in a background process.
-func StartInBackground(conf *config.Opts) error {
+func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
 	err := ensureDirExists(conf.ConfDir)
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server in background")
+		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
 		Dir:   conf.ConfDir,
@@ -240,12 +240,11 @@ func StartInBackground(conf *config.Opts) error {
 	// No need to keep track of the spawned process
 	executable, err := os.Executable()
 	if err != nil {
-		return errors.Wrap(err, "Unable to determine server executable")
+		return 0, errors.Wrap(err, "Unable to determine server executable")
 	}
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server process")
+		return 0, errors.Wrap(err, "Unable to start server process")
 	}
-	log.Printf("Server started in background process: PID %d\n", proc.Pid)
-	return nil
+	return proc.Pid, nil
 }
