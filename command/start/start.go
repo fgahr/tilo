@@ -43,9 +43,13 @@ func (op StartOperation) ServerExec(srv *server.Server, cmd command.Cmd, resp *m
 	srv.SetActiveTask(taskName)
 }
 
-func (op StartOperation) Doc() string {
-	// TODO
-	return "TODO"
+func (op StartOperation) Help() command.Doc {
+	// TODO: Improve, figure out what's required
+	return command.Doc{
+		ShortDescription: "Start a task",
+		LongDescription:  "Start a task",
+		Arguments:        []string{"<task>"},
+	}
 }
 
 func init() {

@@ -17,6 +17,13 @@ type Cmd struct {
 	Body  [][]string        `json:"body"`      // The body containing the command information
 }
 
+type Doc struct {
+	ShortDescription string
+	LongDescription  string
+	Arguments        []string
+	// TODO
+}
+
 // TODO: Add help text information and create help message dynamically
 type Operation interface {
 	// The command identifier
@@ -27,7 +34,7 @@ type Operation interface {
 	ServerExec(srv *server.Server, cmd Cmd, resp *msg.Response)
 	// TODO: require more structure?
 	// Documentation for this operation
-	Doc() string
+	Help() Doc
 }
 
 func RegisterOperation(op Operation) {
@@ -58,9 +65,4 @@ func ExecuteServer(srv *server.Server, cmd Cmd) (msg.Response, error) {
 	}
 	op.ServerExec(srv, cmd, &resp)
 	return resp, nil
-}
-
-func DescribeOperations() string {
-	// TODO: Define operation groups?
-	return "TODO"
 }
