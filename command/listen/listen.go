@@ -1,6 +1,7 @@
 package listen
 
 import (
+	"encoding/json"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/config"
@@ -9,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"os"
-	"encoding/json"
 )
 
 type ListenOperation struct {

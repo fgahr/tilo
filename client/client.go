@@ -9,24 +9,11 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 	"net"
-	"net/rpc"
-	"net/rpc/jsonrpc"
 	"os"
 	"text/tabwriter"
 	"time"
 )
-
-// A struct holding a connection to the server and performing communication
-// with it.
-type Client struct {
-	conn           net.Conn      // Connection to the communication socket
-	requestTimeout time.Duration // Timeout for requests
-	Conf           *config.Opts  // Configuration for this process
-	rpcClient      *rpc.Client   // RPC Client to call server-side functions
-	err            error         // Any error that may have occured
-}
 
 // Send the command to the server, receive the response.
 func SendToServer(conf *config.Opts, cmd command.Cmd) (msg.Response, error) {
@@ -46,57 +33,8 @@ func SendToServer(conf *config.Opts, cmd command.Cmd) (msg.Response, error) {
 	return resp, nil
 }
 
-// Create a new client to communicate with the server.
-func NewClient(params *config.Opts) (*Client, error) {
-	c := Client{
-		conn:           nil,
-		requestTimeout: 5 * time.Second,
-		Conf:           params,
-	}
-	return &c, nil
-}
-
-// FIXME: Out of date, move/replace
-// Listen to notifications from the server and print them to stdout.
-func PrintNotifications(conf *config.Opts) error {
-	conn, err := net.Dial("unix", conf.ServerSocket())
-	if err != nil {
-		return errors.Wrap(err, "Cannot connect to socket")
-	}
-	defer conn.Close()
-	_, err = io.Copy(os.Stdout, conn)
-	return errors.Wrap(err, "Transmission failed")
-}
-
-func (c *Client) parseArgs(args []string) (string, msg.Request) {
-	if c.err != nil {
-		return "", msg.Request{}
-	}
-	fnName, request, err := msg.ParseRequest(args, time.Now())
-	if err != nil {
-		c.err = errors.Wrap(err, "Unable to parse command line arguments")
-		return "", msg.Request{}
-	}
-	return fnName, request
-}
-
-// Close the client's connection to the server.
-func (c *Client) Close() error {
-	if c.conn == nil {
-		return errors.New("Client is not connected.")
-	}
-	err := c.conn.Close()
-	if err != nil {
-		return err
-	}
-	return c.err
-}
-
-// Print a response as formatted output.
-func (c *Client) PrintResponse(resp msg.Response) error {
-	return PrintResponse(c.Conf, resp)
-}
-
+// Print a response to stdout.
+// NOTE: Options might be relevant in the future to determine formatting etc.
 func PrintResponse(_ *config.Opts, resp msg.Response) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
 	for _, line := range resp.Body {
@@ -114,6 +52,7 @@ func PrintResponse(_ *config.Opts, resp msg.Response) error {
 	return w.Flush()
 }
 
+// Establish a connection with the server.
 func EstablishConnection(conf *config.Opts) (net.Conn, error) {
 	if err := EnsureServerIsRunning(conf); err != nil {
 		// Nothing useful to add here, just pass it as-is
