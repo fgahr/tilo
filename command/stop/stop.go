@@ -19,7 +19,7 @@ func (op StopOperation) Command() string {
 
 func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
 	if len(args) != 0 {
-		// TODO: Warn about ignore arguments? Crash? Print usage?
+		// TODO: Warn about ignored arguments? Crash? Print usage?
 	}
 	clientCmd := command.Cmd{
 		Op: op.Command(),
