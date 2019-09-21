@@ -74,6 +74,13 @@ func (r *Response) SetError(err error) {
 	r.Error = err.Error()
 }
 
+func (r *Response) SetListening() {
+	if r.Status != RespError {
+		r.Status = RespSuccess
+	}
+	r.addToBody(line("Listening"))
+}
+
 func (r *Response) statusIsSet() bool {
 	return r.Status != ""
 }

@@ -32,6 +32,7 @@ type Operation interface {
 	// Execute client-side behaviour based on args
 	ClientExec(conf *config.Opts, args ...string) error
 	// Execute server-side behaviour based on the command
+	// NOTE: That's a lot of arguments. If it gets any more than that, set them as the operation's state.
 	ServerExec(srv *server.Server, conn net.Conn, cmd Cmd, resp *msg.Response)
 	// Documentation for this operation
 	Help() Doc

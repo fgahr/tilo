@@ -36,7 +36,11 @@ func (op ListenOperation) ClientExec(conf *config.Opts, args ...string) error {
 }
 
 func (op ListenOperation) ServerExec(srv *server.Server, conn net.Conn, cmd command.Cmd, resp *msg.Response) {
-	// TODO
+	if err := srv.RegisterListenerConnection(conn); err != nil {
+		resp.SetError(errors.Wrap(err, "Failed to add as listener"))
+	} else {
+		resp.SetListening()
+	}
 }
 
 func (op ListenOperation) Help() command.Doc {

@@ -9,6 +9,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"log"
+	"net"
 )
 
 func (s *Server) logDebugSome(format string, v ...interface{}) {
@@ -62,20 +63,15 @@ func (s *Server) StopCurrentTask() (msg.Task, bool) {
 	return s.CurrentTask, false
 }
 
-// TODO: Delegate to individual operations
-func (s *Server) OldStopCurrentTask(resp *msg.Response) error {
-	if !s.CurrentTask.IsRunning() && resp != nil {
-		resp.SetError(errors.New("No active task"))
-		return nil
+// Register the listener with the server. If it cannot be notified immediately,
+// an error is returned.
+func (s *Server) RegisterListenerConnection(conn net.Conn) error {
+	lst := NotificationListener{conn}
+	if err := lst.notify(taskNotification(s.CurrentTask)); err != nil {
+		lst.disconnect()
+		return errors.Wrap(err, "Could not notify listener, disconnecting")
 	}
-	s.CurrentTask.Stop()
-	// NOTE: Delegating to a goroutine might cause problems when shutting down,
-	// therefore notify sequentially.
-	s.notifyListeners()
-	err := s.backend.Save(s.CurrentTask)
-	if resp != nil {
-		resp.AddStoppedTask(s.CurrentTask)
-		s.logResponse(resp)
-	}
-	return err
+	// FIXME: Make thread-safe
+	s.listeners = append(s.listeners, lst)
+	return nil
 }
