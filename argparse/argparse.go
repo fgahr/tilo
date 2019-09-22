@@ -12,7 +12,7 @@ const (
 )
 
 // Warn the user about arguments being unevaluated.
-func WarnUnused(args ...string) {
+func WarnUnused(args []string) {
 	if len(args) > 0 {
 		fmt.Fprintln(os.Stderr, "Ignoring unused arguments:", args)
 	}

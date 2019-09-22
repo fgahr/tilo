@@ -9,7 +9,7 @@ import (
 	"net"
 )
 
-var operations map[string]Operation
+var operations = make(map[string]Operation)
 
 type Cmd struct {
 	Op    string            `json:"operation"` // The operation to perform
@@ -66,4 +66,12 @@ func ExecuteServer(srv *server.Server, conn net.Conn, cmd Cmd) (msg.Response, er
 	}
 	op.ServerExec(srv, conn, cmd, &resp)
 	return resp, nil
+}
+
+func PrintSingleOperationHelp(op Operation) {
+	// TODO
+}
+
+func PrintAllOperationsHelp(op Operation) {
+	// TODO
 }

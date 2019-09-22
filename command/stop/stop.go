@@ -20,7 +20,7 @@ func (op StopOperation) Command() string {
 }
 
 func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
-	argparse.WarnUnused(args...)
+	argparse.WarnUnused(args)
 	clientCmd := command.Cmd{
 		Op: op.Command(),
 	}

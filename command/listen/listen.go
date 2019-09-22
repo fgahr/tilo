@@ -10,8 +10,8 @@ import (
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
 	"io"
-	"os"
 	"net"
+	"os"
 )
 
 type ListenOperation struct {
@@ -23,7 +23,7 @@ func (op ListenOperation) Command() string {
 }
 
 func (op ListenOperation) ClientExec(conf *config.Opts, args ...string) error {
-	argparse.WarnUnused(args...)
+	argparse.WarnUnused(args)
 	conn, err := client.EstablishConnection(conf)
 	if err != nil {
 		return err

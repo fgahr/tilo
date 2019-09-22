@@ -23,7 +23,7 @@ func (op PingOperation) Command() string {
 }
 
 func (op PingOperation) ClientExec(conf *config.Opts, args ...string) error {
-	argparse.WarnUnused(args...)
+	argparse.WarnUnused(args)
 	pingCmd := command.Cmd{Op: op.Command()}
 	before := time.Now()
 	fmt.Fprintln(os.Stderr, "Sending ping to server")
