@@ -22,6 +22,9 @@ func (op ListenOperation) Command() string {
 }
 
 func (op ListenOperation) ClientExec(conf *config.Opts, args ...string) error {
+	if len(args) > 0 {
+		// TODO: Warn about ignored arguments? Crash? Print usage?
+	}
 	conn, err := client.EstablishConnection(conf)
 	if err != nil {
 		return err

@@ -81,6 +81,11 @@ func (r *Response) SetListening() {
 	r.addToBody(line("Listening"))
 }
 
+func (r *Response) AddPong() {
+	pongTime := time.Now().Format(time.RFC3339)
+	r.addToBody(line(pongTime))
+}
+
 func (r *Response) statusIsSet() bool {
 	return r.Status != ""
 }
