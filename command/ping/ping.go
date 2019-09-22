@@ -1,16 +1,17 @@
 package ping
 
 import (
+	"fmt"
+	"github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	"github.com/fgahr/tilo/client"
 	"github.com/pkg/errors"
 	"net"
-	"time"
-	"fmt"
 	"os"
+	"time"
 )
 
 type PingOperation struct {
@@ -22,7 +23,7 @@ func (op PingOperation) Command() string {
 }
 
 func (op PingOperation) ClientExec(conf *config.Opts, args ...string) error {
-	// TODO: Warn about unused arguments
+	argparse.WarnUnused(args...)
 	pingCmd := command.Cmd{Op: op.Command()}
 	before := time.Now()
 	fmt.Fprintln(os.Stderr, "Sending ping to server")
@@ -47,4 +48,8 @@ func (op PingOperation) Help() command.Doc {
 		ShortDescription: "Check whether the server is running",
 		LongDescription:  "Check whether the server is running",
 	}
+}
+
+func init() {
+	command.RegisterOperation(PingOperation{})
 }

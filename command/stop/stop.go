@@ -1,6 +1,7 @@
 package stop
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/config"
@@ -19,9 +20,7 @@ func (op StopOperation) Command() string {
 }
 
 func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
-	if len(args) != 0 {
-		// TODO: Warn about ignored arguments? Crash? Print usage?
-	}
+	argparse.WarnUnused(args...)
 	clientCmd := command.Cmd{
 		Op: op.Command(),
 	}
