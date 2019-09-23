@@ -35,7 +35,7 @@ func (cl *Client) Read(p []byte) (n int, err error) {
 	return cl.conn.Read(p)
 }
 
-func Execute(conf *config.Opts, args []string) error {
+func Dispatch(conf *config.Opts, args []string) error {
 	if len(args) == 0 {
 		panic("Empty argument list")
 	}

@@ -2,6 +2,7 @@
 package server
 
 import (
+	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
@@ -181,19 +182,26 @@ func (s *Server) waitForConnection(lst net.Listener, srvChan chan<- net.Conn) {
 	}
 }
 
-func (s *Server) Execute(conn net.Conn, cmd msg.Cmd) error {
-	command := cmd.Op
+// Serve a notification listener connection, keeping it open.
+func (s *Server) serveConnection(conn net.Conn) {
+	dec := json.NewDecoder(conn)
+	cmd := msg.Cmd{}
+	if err := dec.Decode(&cmd); err != nil {
+		log.Println(errors.Wrap(err, "Failed to decode command"))
+	}
+	if err := s.Dispatch(&Request{conn, cmd}); err != nil {
+		log.Println(errors.Wrap(err, "Unable to execute command"))
+	}
+}
+
+func (s *Server) Dispatch(req *Request) error {
+	command := req.Cmd.Op
 	op := operations[command]
 	if op == nil {
 		return errors.New("No such operation: " + command)
 	}
-	op.ServerExec(s, &Request{conn, cmd})
+	op.ServerExec(s, req)
 	return nil
-}
-
-// Serve a notification listener connection, keeping it open.
-func (s *Server) serveConnection(conn net.Conn) {
-	// TODO
 }
 
 // Send a notification to all registered listeners.

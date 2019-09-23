@@ -37,6 +37,6 @@ func PrintSingleOperationHelp(op Operation) {
 	// TODO
 }
 
-func PrintAllOperationsHelp(op Operation) {
+func PrintAllOperationsHelp() {
 	// TODO
 }

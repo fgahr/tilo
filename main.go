@@ -3,6 +3,7 @@ package main
 
 import (
 	"github.com/fgahr/tilo/client"
+	"github.com/fgahr/tilo/command"
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/srvcmd"
@@ -13,17 +14,17 @@ import (
 	"os"
 )
 
-// Print usage information for this program.
-func printUsage() {
-	// TODO
-}
-
 // Initiate server or client operation based on given arguments.
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		printUsage()
+		command.PrintAllOperationsHelp()
 		os.Exit(1)
+	}
+
+	if args[0] == "-h" || args[0] == "--help" {
+		command.PrintAllOperationsHelp()
+		os.Exit(0)
 	}
 
 	// TODO: Parse config-related options?
@@ -32,5 +33,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client.Execute(conf, args)
+	client.Dispatch(conf, args)
 }
