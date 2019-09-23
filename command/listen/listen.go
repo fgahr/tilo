@@ -1,16 +1,13 @@
 package listen
 
 import (
-	"encoding/json"
 	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
-	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
 	"io"
-	"net"
 	"os"
 )
 
@@ -22,27 +19,30 @@ func (op ListenOperation) Command() string {
 	return "listen"
 }
 
-func (op ListenOperation) ClientExec(conf *config.Opts, args ...string) error {
+func (op ListenOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args)
-	conn, err := client.EstablishConnection(conf)
-	if err != nil {
-		return err
+	cl.EstablishConnection()
+	if cl.Failed() {
+		return cl.Error()
 	}
-	listenCmd := command.Cmd{Op: "listen"}
-	enc := json.NewEncoder(conn)
-	if err = enc.Encode(listenCmd); err != nil {
-		return errors.Wrap(err, "Failed to send listening request")
+	listenCmd := msg.Cmd{Op: "listen"}
+	cl.SendToServer(listenCmd)
+	if cl.Failed() {
+		return cl.Error()
 	}
-	_, err = io.Copy(os.Stdout, conn)
+	_, err := io.Copy(os.Stdout, cl)
 	return err
 }
 
-func (op ListenOperation) ServerExec(srv *server.Server, conn net.Conn, cmd command.Cmd, resp *msg.Response) {
-	if err := srv.RegisterListenerConnection(conn); err != nil {
+func (op ListenOperation) ServerExec(srv *server.Server, req *server.Request) error {
+	// NOTE: Connection has to be kept open!
+	resp := msg.Response{}
+	if err := srv.RegisterListener(req); err != nil {
 		resp.SetError(errors.Wrap(err, "Failed to add as listener"))
 	} else {
 		resp.SetListening()
 	}
+	return srv.Answer(req, resp)
 }
 
 func (op ListenOperation) Help() command.Doc {

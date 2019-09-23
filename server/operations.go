@@ -9,7 +9,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"log"
-	"net"
+	"encoding/json"
 )
 
 func (s *Server) logDebugSome(format string, v ...interface{}) {
@@ -30,8 +30,14 @@ func (s *Server) logRequest(req msg.Request) {
 }
 
 // Log a response at the appropriate debug level.
-func (s *Server) logResponse(resp *msg.Response) {
-	s.logDebugAll("Returning response: %v\n", *resp)
+func (s *Server) logResponse(resp msg.Response) {
+	s.logDebugAll("Returning response: %v\n", resp)
+}
+
+func (s *Server) Answer(req *Request, resp msg.Response) error {
+	enc := json.NewEncoder(req.Conn)
+	defer s.logResponse(resp)
+	return errors.Wrap(enc.Encode(resp), "Failed to send response")
 }
 
 func (s *Server) SaveTask(task msg.Task) error {
@@ -65,8 +71,8 @@ func (s *Server) StopCurrentTask() (msg.Task, bool) {
 
 // Register the listener with the server. If it cannot be notified immediately,
 // an error is returned.
-func (s *Server) RegisterListenerConnection(conn net.Conn) error {
-	lst := NotificationListener{conn}
+func (s *Server) RegisterListener(req *Request) error {
+	lst := NotificationListener{req.Conn}
 	if err := lst.notify(taskNotification(s.CurrentTask)); err != nil {
 		lst.disconnect()
 		return errors.Wrap(err, "Could not notify listener, disconnecting")

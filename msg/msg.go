@@ -21,6 +21,13 @@ const (
 	ArgShutdown = "shutdown"
 )
 
+type Cmd struct {
+	Op    string            `json:"operation"` // The operation to perform
+	Flags map[string]bool   `json:"flags"`     // Possible flags
+	Opts  map[string]string `json:"options"`   // Possible options
+	Body  [][]string        `json:"body"`      // The body containing the command information
+}
+
 type QueryDetails []string
 
 // Request, to be sent to the server.

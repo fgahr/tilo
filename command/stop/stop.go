@@ -4,11 +4,9 @@ import (
 	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
-	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"net"
 )
 
 type StopOperation struct {
@@ -19,24 +17,25 @@ func (op StopOperation) Command() string {
 	return "stop"
 }
 
-func (op StopOperation) ClientExec(conf *config.Opts, args ...string) error {
+func (op StopOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args)
-	clientCmd := command.Cmd{
+	clientCmd := msg.Cmd{
 		Op: op.Command(),
 	}
 
-	if err := client.EnsureServerIsRunning(conf); err != nil {
+	if err := cl.EnsureServerIsRunning(); err != nil {
 		return errors.Wrap(err, "Failed to stop the current task")
 	}
 
-	resp, err := client.SendToServer(conf, clientCmd)
-	if err != nil {
-		return errors.Wrap(err, "Failed to stop the current task")
-	}
-	return client.PrintResponse(conf, resp)
+	cl.SendToServer(clientCmd)
+	resp := cl.ReceiveFromServer()
+	cl.PrintResponse(resp)
+	return cl.Error()
 }
 
-func (op StopOperation) ServerExec(srv *server.Server, _ net.Conn, cmd command.Cmd, resp *msg.Response) {
+func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) error {
+	defer req.Close()
+	resp := msg.Response{}
 	task, stopped := srv.StopCurrentTask()
 	if stopped {
 		if err := srv.SaveTask(task); err != nil {
@@ -46,6 +45,7 @@ func (op StopOperation) ServerExec(srv *server.Server, _ net.Conn, cmd command.C
 	} else {
 		resp.SetError(errors.New("No active task"))
 	}
+	return srv.Answer(req, resp)
 }
 
 func (op StopOperation) Help() command.Doc {

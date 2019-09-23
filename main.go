@@ -2,7 +2,7 @@
 package main
 
 import (
-	"github.com/fgahr/tilo/command"
+	"github.com/fgahr/tilo/client"
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/srvcmd"
@@ -32,5 +32,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	command.ExecuteClient(conf, args)
+	client.Execute(conf, args)
 }

@@ -14,14 +14,35 @@ import (
 	"syscall"
 )
 
+var operations = make(map[string]ServerOperation)
+
+type Request struct {
+	Conn net.Conn
+	Cmd  msg.Cmd
+}
+
+func (req *Request) Close() error {
+	return req.Conn.Close()
+}
+
+type ServerOperation interface {
+	// Execute server-side behaviour based on the command
+	ServerExec(srv *Server, req *Request) error
+}
+
+func RegisterOperation(name string, operation ServerOperation) {
+	operations[name] = operation
+}
+
+
 // A tilo Server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
 type Server struct {
-	shutdownChan   chan struct{}           // Used to communicate shutdown requests
-	conf           *config.Opts            // Configuration parameters for this instance
-	backend        *db.Backend             // The database backend
-	socketListener net.Listener            // Listener on the client request socket
-	CurrentTask    msg.Task                // The currently active task, if any
+	shutdownChan   chan struct{}          // Used to communicate shutdown requests
+	conf           *config.Opts           // Configuration parameters for this instance
+	backend        *db.Backend            // The database backend
+	socketListener net.Listener           // Listener on the client request socket
+	CurrentTask    msg.Task               // The currently active task, if any
 	listeners      []NotificationListener // Listeners for task change notifications
 }
 
@@ -159,6 +180,16 @@ func (s *Server) waitForConnection(lst net.Listener, srvChan chan<- net.Conn) {
 			srvChan <- conn
 		}
 	}
+}
+
+func (s *Server) Execute(conn net.Conn, cmd msg.Cmd) error {
+	command := cmd.Op
+	op := operations[command]
+	if op == nil {
+		return errors.New("No such operation: " + command)
+	}
+	op.ServerExec(s, &Request{conn, cmd})
+	return nil
 }
 
 // Serve a notification listener connection, keeping it open.

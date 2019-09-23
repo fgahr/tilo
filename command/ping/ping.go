@@ -5,11 +5,8 @@ import (
 	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
-	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	"github.com/pkg/errors"
-	"net"
 	"os"
 	"time"
 )
@@ -22,25 +19,29 @@ func (op PingOperation) Command() string {
 	return "ping"
 }
 
-func (op PingOperation) ClientExec(conf *config.Opts, args ...string) error {
+func (op PingOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args)
-	pingCmd := command.Cmd{Op: op.Command()}
+	pingCmd := msg.Cmd{Op: op.Command()}
 	before := time.Now()
-	fmt.Fprintln(os.Stderr, "Sending ping to server")
-	resp, err := client.SendToServer(conf, pingCmd)
-	if err != nil {
-		return errors.Wrap(err, "Error during ping roundtrip")
-	} else if errStat := resp.Err(); errStat != nil {
-		return resp.Err()
+	if _, err := fmt.Fprintln(os.Stderr, "Sending ping to server"); err != nil {
+		return err
 	}
+	cl.SendToServer(pingCmd)
+	cl.ReceiveFromServer() // Ignoring response
 	after := time.Now()
-	_, err = fmt.Fprintf(os.Stderr, "Received pong from server after %v\n", after.Sub(before))
-	return errors.Wrap(err, "Failed to write ping summary")
+	if cl.Failed() {
+		return cl.Error()
+	}
+	_, err := fmt.Fprintf(os.Stderr, "Received pong from server after %v\n", after.Sub(before))
+	return err
 }
 
-func (op PingOperation) ServerExec(srv *server.Server, conn net.Conn, cmd command.Cmd, resp *msg.Response) {
+func (op PingOperation) ServerExec(srv *server.Server, req *server.Request) error {
+	defer req.Close()
+	resp := msg.Response{}
 	resp.Status = msg.RespSuccess
 	resp.AddPong()
+	return srv.Answer(req, resp)
 }
 
 func (op PingOperation) Help() command.Doc {
