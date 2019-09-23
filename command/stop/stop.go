@@ -23,14 +23,11 @@ func (op StopOperation) ClientExec(cl *client.Client, args ...string) error {
 		Op: op.Command(),
 	}
 
-	if err := cl.EnsureServerIsRunning(); err != nil {
-		return errors.Wrap(err, "Failed to stop the current task")
-	}
-
+	cl.EstablishConnection()
 	cl.SendToServer(clientCmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
-	return cl.Error()
+	return errors.Wrap(cl.Error(), "Failed to stop the current task")
 }
 
 func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) error {

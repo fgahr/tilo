@@ -20,8 +20,10 @@ func (op ServerOperation) Command() string {
 func (op ServerOperation) ClientExec(cl *client.Client, args ...string) error {
 	if len(args) == 0 {
 		command.PrintSingleOperationHelp(op)
+		return nil
 	}
 	argparse.WarnUnused(args[1:])
+
 	switch args[0] {
 	case "start":
 		cl.EnsureServerIsRunning()

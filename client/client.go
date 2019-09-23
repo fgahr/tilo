@@ -73,47 +73,6 @@ func (c *Client) Error() error {
 	return c.err
 }
 
-func (c *Client) EnsureServerIsRunning() {
-	// Query server status.
-	if running, err := server.IsRunning(c.Conf); err != nil {
-		c.err = errors.Wrap(err, "Could not determine server status")
-	} else if running {
-		return
-	}
-
-	// Start server if it isn't running.
-	if pid, err := server.StartInBackground(c.Conf); err != nil {
-		c.err = errors.Wrap(err, "Could not start server")
-	} else {
-		fmt.Printf("Server started in background process: PID %d\n", pid)
-	}
-
-	// Wait for server to become available
-	notifyChan := make(chan struct{})
-	go func(ch chan<- struct{}) {
-		for {
-			up, _ := server.IsRunning(c.Conf)
-			if up {
-				ch <- struct{}{}
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-	}(notifyChan)
-	select {
-	case <-notifyChan:
-		return
-	// TODO: Make timeout configurable
-	case <-time.After(5 * time.Second):
-		close(notifyChan)
-		c.err = errors.New("Timeout exceeded trying to bring up server.")
-	}
-}
-
-func (c *Client) RunServer() {
-	c.err = server.Run(c.Conf)
-}
-
 func (c *Client) EstablishConnection() {
 	if c.Failed() {
 		return
@@ -170,4 +129,45 @@ func (c *Client) PrintResponse(resp msg.Response) {
 		fmt.Fprint(w, "\n")
 	}
 	c.err = w.Flush()
+}
+
+func (c *Client) EnsureServerIsRunning() {
+	// Query server status.
+	if running, err := server.IsRunning(c.Conf); err != nil {
+		c.err = errors.Wrap(err, "Could not determine server status")
+	} else if running {
+		return
+	}
+
+	// Start server if it isn't running.
+	if pid, err := server.StartInBackground(c.Conf); err != nil {
+		c.err = errors.Wrap(err, "Could not start server")
+	} else {
+		fmt.Printf("Server started in background process: PID %d\n", pid)
+	}
+
+	// Wait for server to become available
+	notifyChan := make(chan struct{})
+	go func(ch chan<- struct{}) {
+		for {
+			up, _ := server.IsRunning(c.Conf)
+			if up {
+				ch <- struct{}{}
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}(notifyChan)
+	select {
+	case <-notifyChan:
+		return
+	// TODO: Make timeout configurable
+	case <-time.After(5 * time.Second):
+		close(notifyChan)
+		c.err = errors.New("Timeout exceeded trying to bring up server.")
+	}
+}
+
+func (c *Client) RunServer() {
+	c.err = server.Run(c.Conf)
 }

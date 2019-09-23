@@ -21,14 +21,16 @@ func (op ListenOperation) Command() string {
 
 func (op ListenOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args)
-	cl.EstablishConnection()
-	if cl.Failed() {
-		return cl.Error()
-	}
 	listenCmd := msg.Cmd{Op: "listen"}
+
+	cl.EstablishConnection()
 	cl.SendToServer(listenCmd)
+	resp := cl.ReceiveFromServer()
+	if resp.Err() != nil {
+		return resp.Err()
+	}
 	if cl.Failed() {
-		return cl.Error()
+		return errors.Wrap(cl.Error(), "Failed to establish listener connection")
 	}
 	_, err := io.Copy(os.Stdout, cl)
 	return err
