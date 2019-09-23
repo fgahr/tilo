@@ -46,6 +46,13 @@ type Server struct {
 	listeners      []NotificationListener // Listeners for task change notifications
 }
 
+// Create and configure a new server.
+func newServer(conf *config.Opts) *Server {
+	s := new(Server)
+	s.conf = conf
+	return s
+}
+
 // Start server operation.
 // This function will block until server shutdown.
 func Run(conf *config.Opts) error {
@@ -60,13 +67,6 @@ func Run(conf *config.Opts) error {
 
 	s.main()
 	return nil
-}
-
-// Create and configure a new server.
-func newServer(conf *config.Opts) *Server {
-	s := new(Server)
-	s.conf = conf
-	return s
 }
 
 // Check whether the server is running.

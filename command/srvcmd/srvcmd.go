@@ -24,13 +24,13 @@ func (op ServerOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args[1:])
 	switch args[0] {
 	case "start":
-		return cl.EnsureServerIsRunning()
+		cl.EnsureServerIsRunning()
 	case "run":
-		return server.Run(cl.Conf)
+		cl.RunServer()
 	default:
 		command.PrintSingleOperationHelp(op)
 	}
-	return nil
+	return cl.Error()
 }
 
 func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) error {
