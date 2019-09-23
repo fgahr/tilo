@@ -29,6 +29,9 @@ func NewBackend(conf *config.Opts) (*Backend, error) {
 
 // Initialize the backend, setting up the database connection.
 func (b *Backend) init() error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
 	db, err := sql.Open("sqlite3", b.conf.DBFile())
 	if err != nil {
 		return errors.Wrap(err, "Unable to establish database connection")
@@ -51,11 +54,17 @@ CREATE TABLE IF NOT EXISTS task (
 
 // Close the backend.
 func (b *Backend) Close() error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
 	return b.db.Close()
 }
 
 // Save a task to the database, usually after stopping it first.
 func (b *Backend) Save(task msg.Task) error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
 	if task.IsRunning() {
 		panic("Cannot save an active task.")
 	}
@@ -73,6 +82,9 @@ func (b *Backend) Query(taskName string, detail msg.QueryDetails) ([]msg.Summary
 	}
 
 	var sum []msg.Summary
+	if b == nil {
+		return sum, errors.New("No backend present")
+	}
 	var err error
 	switch detail[0] {
 	case msg.QryDay:
