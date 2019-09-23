@@ -26,7 +26,7 @@ func RegisterOperation(name string, operation ClientOperation) {
 }
 
 type Client struct {
-	Conf *config.Opts
+	conf *config.Opts
 	conn net.Conn
 	err  error
 }
@@ -49,7 +49,7 @@ func Execute(conf *config.Opts, args []string) error {
 }
 
 func newClient(conf *config.Opts) *Client {
-	return &Client{Conf: conf}
+	return &Client{conf: conf}
 }
 
 func (c *Client) Failed() bool {
@@ -78,7 +78,7 @@ func (c *Client) EstablishConnection() {
 		return
 	}
 	c.EnsureServerIsRunning()
-	socket := c.Conf.ServerSocket()
+	socket := c.conf.ServerSocket()
 	if conn, err := net.Dial("unix", socket); err != nil {
 		c.err = errors.Wrap(err, "Failed to connect to socket" + socket)
 	} else {
@@ -133,14 +133,14 @@ func (c *Client) PrintResponse(resp msg.Response) {
 
 func (c *Client) EnsureServerIsRunning() {
 	// Query server status.
-	if running, err := server.IsRunning(c.Conf); err != nil {
+	if running, err := server.IsRunning(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not determine server status")
 	} else if running {
 		return
 	}
 
 	// Start server if it isn't running.
-	if pid, err := server.StartInBackground(c.Conf); err != nil {
+	if pid, err := server.StartInBackground(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not start server")
 	} else {
 		fmt.Printf("Server started in background process: PID %d\n", pid)
@@ -150,7 +150,7 @@ func (c *Client) EnsureServerIsRunning() {
 	notifyChan := make(chan struct{})
 	go func(ch chan<- struct{}) {
 		for {
-			up, _ := server.IsRunning(c.Conf)
+			up, _ := server.IsRunning(c.conf)
 			if up {
 				ch <- struct{}{}
 				return
@@ -169,5 +169,5 @@ func (c *Client) EnsureServerIsRunning() {
 }
 
 func (c *Client) RunServer() {
-	c.err = server.Run(c.Conf)
+	c.err = server.Run(c.conf)
 }
