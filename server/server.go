@@ -115,19 +115,22 @@ func (s *Server) init() error {
 	}
 
 	// Establish database connection.
-	backend, err := db.NewBackend(s.conf)
-	if err != nil {
+	if backend, err := db.NewBackend(s.conf); err != nil {
 		s.socketListener.Close()
 		backend.Close()
 		return err
+	} else {
+		s.backend = backend
 	}
 
 	// Open request socket.
-	requestListener, err := net.Listen("unix", s.conf.ServerSocket())
-	if err != nil {
+	if requestListener, err := net.Listen("unix", s.conf.ServerSocket()); err != nil {
 		return err
+	} else {
+		s.socketListener = requestListener
 	}
-	s.socketListener = requestListener
+
+	s.CurrentTask = msg.IdleTask()
 
 	return nil
 }

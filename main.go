@@ -33,5 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client.Dispatch(conf, args)
+	if err := client.Dispatch(conf, args); err != nil {
+		log.Fatal(err)
+	}
 }

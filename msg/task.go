@@ -24,19 +24,17 @@ func FreshTask(name string) Task {
 	return Task{Name: name, Started: rightNow(), HasEnded: false}
 }
 
-
-func NewIdleTask() *Task {
+func IdleTask() Task {
 	t := rightNow()
-	return &Task{Name: "", Started: t, Ended: t, HasEnded: true}
+	return Task{Name: "", Started: t, Ended: t, HasEnded: true}
 }
 
 // Stop the task.
-func (t *Task) Stop() time.Time {
+func (t *Task) Stop() {
 	if !t.HasEnded {
 		t.Ended = rightNow()
 		t.HasEnded = true
 	}
-	return t.Ended
 }
 
 func (t *Task) IsRunning() bool {
