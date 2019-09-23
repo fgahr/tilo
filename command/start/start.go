@@ -19,13 +19,13 @@ func (op StartOperation) Command() string {
 func (op StartOperation) ClientExec(cl *client.Client, args ...string) error {
 	// TODO: Parse arguments, extract task name
 	taskName := "foo"
-	clientCmd := msg.Cmd{
+	startCmd := msg.Cmd{
 		Op:   op.Command(),
 		Body: [][]string{[]string{taskName}},
 	}
 
 	cl.EstablishConnection()
-	cl.SendToServer(clientCmd)
+	cl.SendToServer(startCmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
 	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", taskName)

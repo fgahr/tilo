@@ -115,20 +115,24 @@ func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
 	}
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
-	for _, line := range resp.Body {
-		noTab := true
-		for _, word := range line {
-			if noTab {
-				noTab = false
-			} else {
-				fmt.Fprint(w, "\t")
+	if resp.Failed() {
+		c.err = resp.Err()
+	} else {
+		w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
+		for _, line := range resp.Body {
+			noTab := true
+			for _, word := range line {
+				if noTab {
+					noTab = false
+				} else {
+					fmt.Fprint(w, "\t")
+				}
+				fmt.Fprint(w, word)
 			}
-			fmt.Fprint(w, word)
+			fmt.Fprint(w, "\n")
 		}
-		fmt.Fprint(w, "\n")
+		c.err = w.Flush()
 	}
-	c.err = w.Flush()
 }
 
 func (c *Client) EnsureServerIsRunning() {

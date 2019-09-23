@@ -68,14 +68,18 @@ func (r *Response) SetError(err error) {
 		return
 	}
 
-	if r.Status != RespError {
+	if r.Failed() {
 		r.Status = RespError
 	}
 	r.Error = err.Error()
 }
 
+func (r *Response) Failed() bool {
+	return r.Status == RespError
+}
+
 func (r *Response) SetListening() {
-	if r.Status != RespError {
+	if !r.Failed() {
 		r.Status = RespSuccess
 	}
 	r.addToBody(line("Listening"))

@@ -4,6 +4,7 @@ package main
 import (
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
+	_ "github.com/fgahr/tilo/command/current"
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/srvcmd"
@@ -27,13 +28,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	// TODO: Parse config-related options?
+	// TODO: Parse config-related options, read environment/config file
 	conf, err := config.DefaultConfig()
 	if err != nil {
+		// TODO: Consider printing without timestamp
 		log.Fatal(err)
 	}
 
 	if err := client.Dispatch(conf, args); err != nil {
+		// TODO: Consider printing without timestamp
 		log.Fatal(err)
 	}
 }
