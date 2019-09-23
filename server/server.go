@@ -34,7 +34,6 @@ func RegisterOperation(name string, operation ServerOperation) {
 	operations[name] = operation
 }
 
-
 // A tilo Server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
 type Server struct {

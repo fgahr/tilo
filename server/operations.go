@@ -5,11 +5,11 @@ package server
 // with explanations.
 
 import (
+	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"log"
-	"encoding/json"
 )
 
 func (s *Server) logDebugSome(format string, v ...interface{}) {

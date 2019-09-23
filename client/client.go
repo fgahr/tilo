@@ -80,7 +80,7 @@ func (c *Client) EstablishConnection() {
 	c.EnsureServerIsRunning()
 	socket := c.conf.ServerSocket()
 	if conn, err := net.Dial("unix", socket); err != nil {
-		c.err = errors.Wrap(err, "Failed to connect to socket" + socket)
+		c.err = errors.Wrap(err, "Failed to connect to socket"+socket)
 	} else {
 		c.conn = conn
 	}
@@ -135,6 +135,7 @@ func (c *Client) EnsureServerIsRunning() {
 	// Query server status.
 	if running, err := server.IsRunning(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not determine server status")
+		return
 	} else if running {
 		return
 	}
@@ -142,6 +143,7 @@ func (c *Client) EnsureServerIsRunning() {
 	// Start server if it isn't running.
 	if pid, err := server.StartInBackground(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not start server")
+		return
 	} else {
 		fmt.Printf("Server started in background process: PID %d\n", pid)
 	}
