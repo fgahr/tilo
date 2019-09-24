@@ -21,6 +21,7 @@ type ClientOperation interface {
 	ClientExec(cl *Client, args ...string) error
 }
 
+// Make a client-side operation available.
 func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
 }
@@ -31,10 +32,18 @@ type Client struct {
 	err  error
 }
 
+// Read from the client's connection.
 func (cl *Client) Read(p []byte) (n int, err error) {
+	if cl.Failed() {
+		return 0, errors.Wrap(cl.err, "Cannot read from socket. Previous error")
+	}
+	if cl.conn == nil {
+		panic("Connection not yet established.")
+	}
 	return cl.conn.Read(p)
 }
 
+// Execute the appropriate action based on the configuration and the arguments.
 func Dispatch(conf *config.Opts, args []string) error {
 	if len(args) == 0 {
 		panic("Empty argument list")
@@ -61,6 +70,7 @@ func (c *Client) Connected() bool {
 	return c.conn != nil
 }
 
+// Close the client's underlying connection.
 func (c *Client) Close() error {
 	err := c.conn.Close()
 	if !c.Failed() {
@@ -70,10 +80,20 @@ func (c *Client) Close() error {
 	return err
 }
 
+// The first error the client may have encountered. Nil on successful operation.
 func (c *Client) Error() error {
 	return c.err
 }
 
+// Send the command to the server, receive and print the response.
+func (c *Client) ServerRoundTrip(cmd msg.Cmd) {
+	c.EstablishConnection()
+	c.SendToServer(cmd)
+	resp := c.ReceiveFromServer()
+	c.PrintResponse(resp)
+}
+
+// Establish a connection to the server.
 func (c *Client) EstablishConnection() {
 	if c.Failed() {
 		return
@@ -87,6 +107,7 @@ func (c *Client) EstablishConnection() {
 	}
 }
 
+// Send the command to the server.
 func (c *Client) SendToServer(cmd msg.Cmd) {
 	if c.Failed() {
 		return
@@ -98,6 +119,7 @@ func (c *Client) SendToServer(cmd msg.Cmd) {
 	c.err = errors.Wrap(enc.Encode(cmd), "Failed to send command to server")
 }
 
+// Receive a response from the server.
 func (c *Client) ReceiveFromServer() msg.Response {
 	resp := msg.Response{}
 	if c.Failed() {
@@ -138,6 +160,7 @@ func (c *Client) PrintResponse(resp msg.Response) {
 	}
 }
 
+// Make sure the server is running, start it if necessary.
 func (c *Client) EnsureServerIsRunning() {
 	// Query server status.
 	if running, err := server.IsRunning(c.conf); err != nil {
@@ -177,6 +200,7 @@ func (c *Client) EnsureServerIsRunning() {
 	}
 }
 
+// Run the server in the foreground.
 func (c *Client) RunServer() {
 	c.err = server.Run(c.conf)
 }

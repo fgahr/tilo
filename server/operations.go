@@ -12,12 +12,14 @@ import (
 	"log"
 )
 
+// TODO: Rename to something sane
 func (s *Server) logDebugSome(format string, v ...interface{}) {
 	if s.conf.DebugLevel >= config.DebugSome {
 		log.Printf(format, v...)
 	}
 }
 
+// TODO: Rename to something sane
 func (s *Server) logDebugAll(format string, v ...interface{}) {
 	if s.conf.DebugLevel >= config.DebugAll {
 		log.Printf(format, v...)
@@ -34,13 +36,18 @@ func (s *Server) logResponse(resp msg.Response) {
 	s.logDebugAll("Returning response: %v\n", resp)
 }
 
+// Answer the request with the provided response.
 func (s *Server) Answer(req *Request, resp msg.Response) error {
 	enc := json.NewEncoder(req.Conn)
 	defer s.logResponse(resp)
 	return errors.Wrap(enc.Encode(resp), "Failed to send response")
 }
 
+// Save a task to the backend database.
 func (s *Server) SaveTask(task msg.Task) error {
+	if task.IsRunning() {
+		return errors.New("Cannot save an active task")
+	}
 	s.logDebugSome("Saving task: %v\n", task)
 	if err := s.backend.Save(task); err != nil {
 		s.logDebugSome("%v\n", err)
@@ -49,6 +56,7 @@ func (s *Server) SaveTask(task msg.Task) error {
 	return nil
 }
 
+// Change the server's current task.
 func (s *Server) SetActiveTask(taskName string) {
 	if s.CurrentTask.IsRunning() {
 		s.logDebugAll("Task was not stopped before being superseded: %v\n", s.CurrentTask)
@@ -82,10 +90,12 @@ func (s *Server) RegisterListener(req *Request) error {
 	return nil
 }
 
+// Query the server's backend for a task's within the given parameters.
 func (s *Server) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
 	return s.backend.Query(taskName, param)
 }
 
+// Initiate the server to shut down, accepting no further connections.
 func (s *Server) InitiateShutdown() {
 	close(s.shutdownChan)
 	if r := recover(); r != nil {
