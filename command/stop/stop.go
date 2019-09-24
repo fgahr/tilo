@@ -19,12 +19,12 @@ func (op StopOperation) Command() string {
 
 func (op StopOperation) ClientExec(cl *client.Client, args ...string) error {
 	argparse.WarnUnused(args)
-	clientCmd := msg.Cmd{
+	stopCmd := msg.Cmd{
 		Op: op.Command(),
 	}
 
 	cl.EstablishConnection()
-	cl.SendToServer(clientCmd)
+	cl.SendToServer(stopCmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
 	return errors.Wrap(cl.Error(), "Failed to stop the current task")

@@ -51,38 +51,8 @@ type Cmd struct {
 	QueryParams []QueryParam      `json:"query_params"` // The parameters for a query
 }
 
-// Request, to be sent to the server.
-// NOTE: Renaming pending as soon as the old struct is removed.
-type Request struct {
-	Cmd       string
-	Tasks     []string
-	QueryArgs []QueryParam
-	Combine   bool
-}
-
-// TODO remove
-type argParser interface {
-}
-
-// Create a request based on command line parameters and the current time.
-// This function contains the main command language logic.
-// Note that passing the time here is necessary to avoid inconsistencies when
-// encountering a date change around midnight. As a side note, it also
-// simplifies testing.
 func ParseQueryArgs(args []string, cmd *Cmd) error {
 	now := time.Now()
-	// TODO: Figure out error handling
-	// if len(args) == 0 {
-	//	panic("Empty argument list passed from main.")
-	// }
-	qp := queryParser{}
-	return qp.handleArgs(cmd, args, now)
-}
-
-type queryParser struct{}
-
-// Parse args for a query request.
-func (p queryParser) handleArgs(cmd *Cmd, args []string, now time.Time) error {
 	if len(args) == 0 {
 		return errors.New("Missing arguments for query request.")
 	}

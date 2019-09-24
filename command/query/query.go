@@ -1,12 +1,12 @@
 package query
 
 import (
-	// "github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	// "github.com/pkg/errors"
+	"github.com/pkg/errors"
 )
 
 type QueryOperation struct {
@@ -18,8 +18,24 @@ func (op QueryOperation) Command() string {
 }
 
 func (op QueryOperation) ClientExec(cl *client.Client, args ...string) error {
-	// TODO
-	return nil
+	if len(args) < 2 {
+		return errors.New("Need task name(s) and at least on parameter")
+	}
+	tasks, err := argparse.GetTaskNames(args[0])
+	if err != nil {
+		return err
+	}
+	cmd := msg.Cmd{
+		Op:    op.Command(),
+		Tasks: tasks,
+	}
+	msg.ParseQueryArgs(args[1:], &cmd)
+
+	cl.EstablishConnection()
+	cl.SendToServer(cmd)
+	resp := cl.ReceiveFromServer()
+	cl.PrintResponse(resp)
+	return errors.Wrap(cl.Error(), "Failed to query the server")
 }
 
 func (op QueryOperation) ServerExec(srv *server.Server, req *server.Request) error {
