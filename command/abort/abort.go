@@ -14,7 +14,7 @@ type AbortOperation struct {
 }
 
 func (op AbortOperation) Command() string {
-	return "stop"
+	return "abort"
 }
 
 func (op AbortOperation) ClientExec(cl *client.Client, args ...string) error {

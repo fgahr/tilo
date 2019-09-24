@@ -85,3 +85,10 @@ func (s *Server) RegisterListener(req *Request) error {
 func (s *Server) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
 	return s.backend.Query(taskName, param)
 }
+
+func (s *Server) InitiateShutdown() {
+	close(s.shutdownChan)
+	if r := recover(); r != nil {
+		log.Println(r)
+	}
+}

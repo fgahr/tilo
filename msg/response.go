@@ -109,12 +109,11 @@ func (r *Response) addTaskWithDescription(description string, task Task) {
 	}
 }
 
-// The error encapsulated in the response, if any.
-func (r *Response) Err() error {
-	if r.Status == RespError {
-		return errors.New(r.Error)
+func (r *Response) AddShutdownMessage() {
+	if !r.statusIsSet() {
+		r.Status = RespSuccess
 	}
-	return nil
+	r.addToBody(line("Server shutting down: " + formatTime(time.Now())))
 }
 
 // Create a response containing the given query summaries.
@@ -132,6 +131,14 @@ func (r *Response) AddQuerySummaries(sum []Summary) {
 		r.addToBody(line("Last logged", formatTime(s.End)))
 		r.addToBody(line("Total time", s.Total.String()))
 	}
+}
+
+// The error encapsulated in the response, if any.
+func (r *Response) Err() error {
+	if r.Status == RespError {
+		return errors.New(r.Error)
+	}
+	return nil
 }
 
 // Add the given lines to the response body.

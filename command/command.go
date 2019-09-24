@@ -26,7 +26,7 @@ type Operation interface {
 
 func RegisterOperation(op Operation) {
 	if opNames[op.Command()] {
-		panic("Double registration of operations with identical command")
+		panic("Double registration of operations with identical command: " + op.Command())
 	}
 	opNames[op.Command()] = true
 	client.RegisterOperation(op.Command(), op)

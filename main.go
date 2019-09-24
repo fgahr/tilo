@@ -9,6 +9,7 @@ import (
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/query"
+	_ "github.com/fgahr/tilo/command/shutdown"
 	_ "github.com/fgahr/tilo/command/srvcmd"
 	_ "github.com/fgahr/tilo/command/start"
 	_ "github.com/fgahr/tilo/command/stop"
