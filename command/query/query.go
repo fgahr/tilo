@@ -39,6 +39,7 @@ func (op QueryOperation) ClientExec(cl *client.Client, args ...string) error {
 }
 
 func (op QueryOperation) ServerExec(srv *server.Server, req *server.Request) error {
+	defer req.Close()
 	resp := msg.Response{}
 Outer:
 	for _, task := range req.Cmd.Tasks {
