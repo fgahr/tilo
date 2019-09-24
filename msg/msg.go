@@ -57,7 +57,7 @@ func ParseQueryArgs(args []string, cmd *Cmd) error {
 		return errors.New("Missing arguments for query request.")
 	}
 
-	if params, err := getQueryParams(args[1:], now); err != nil {
+	if params, err := getQueryParams(args, now); err != nil {
 		return errors.Wrap(err, "Unable to parse query arguments")
 	} else {
 		cmd.QueryParams = params

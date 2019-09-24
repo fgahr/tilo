@@ -30,8 +30,8 @@ func (op StartOperation) ClientExec(cl *client.Client, args ...string) error {
 
 	taskName := tasks[0]
 	startCmd := msg.Cmd{
-		Op:   op.Command(),
-		Body: [][]string{[]string{taskName}},
+		Op:    op.Command(),
+		Tasks: []string{taskName},
 	}
 
 	cl.EstablishConnection()
@@ -44,7 +44,7 @@ func (op StartOperation) ClientExec(cl *client.Client, args ...string) error {
 func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
-	taskName := req.Cmd.Body[0][0]
+	taskName := req.Cmd.Tasks[0]
 	task, stopped := srv.StopCurrentTask()
 	if stopped {
 		if err := srv.SaveTask(task); err != nil {

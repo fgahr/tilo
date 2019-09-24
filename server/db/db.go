@@ -21,14 +21,14 @@ type Backend struct {
 }
 
 // Create a new backend based on conf.
-func NewBackend(conf *config.Opts) (*Backend, error) {
+func NewBackend(conf *config.Opts) *Backend {
 	backend := new(Backend)
 	backend.conf = conf
-	return backend, backend.init()
+	return backend
 }
 
 // Initialize the backend, setting up the database connection.
-func (b *Backend) init() error {
+func (b *Backend) Init() error {
 	if b == nil {
 		return errors.New("No backend present")
 	}

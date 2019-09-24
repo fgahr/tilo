@@ -27,40 +27,10 @@ type Response struct {
 // Type representing summary of a single request.
 type Summary struct {
 	Task    string
-	Details QueryDetails
+	Details QueryParam
 	Total   time.Duration
 	Start   time.Time
 	End     time.Time
-}
-
-// Create a response containing the given query summaries.
-func QueryResponse(summaries []Summary) Response {
-	var resp Response
-	if summaries == nil {
-		resp = Response{Status: RespSuccess}
-		resp.addToBody(line("Nothing found"))
-		return resp
-	}
-
-	resp = Response{Status: RespSuccess}
-	addNewline := false
-	for _, s := range summaries {
-		// Separate summaries by an empty line; skipped in first iteration.
-		if addNewline {
-			resp.addToBody(line())
-		} else {
-			addNewline = true
-		}
-		header := []string{s.Task}
-		for _, detail := range s.Details {
-			header = append(header, detail)
-		}
-		resp.addToBody(line(strings.Join(header, " ")))
-		resp.addToBody(line("First logged", formatTime(s.Start)))
-		resp.addToBody(line("Last logged", formatTime(s.End)))
-		resp.addToBody(line("Total time", s.Total.String()))
-	}
-	return resp
 }
 
 func (r *Response) SetError(err error) {
@@ -140,11 +110,28 @@ func (r *Response) addTaskWithDescription(description string, task Task) {
 }
 
 // The error encapsulated in the response, if any.
-func (r Response) Err() error {
+func (r *Response) Err() error {
 	if r.Status == RespError {
 		return errors.New(r.Error)
 	}
 	return nil
+}
+
+// Create a response containing the given query summaries.
+func (r *Response) AddQuerySummaries(sum []Summary) {
+	if !r.statusIsSet() {
+		r.Status = RespSuccess
+	}
+	for _, s := range sum {
+		header := []string{s.Task}
+		for _, detail := range s.Details {
+			header = append(header, detail)
+		}
+		r.addToBody(line(strings.Join(header, " ")))
+		r.addToBody(line("First logged", formatTime(s.Start)))
+		r.addToBody(line("Last logged", formatTime(s.End)))
+		r.addToBody(line("Total time", s.Total.String()))
+	}
 }
 
 // Add the given lines to the response body.

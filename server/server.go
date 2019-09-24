@@ -115,7 +115,8 @@ func (s *Server) init() error {
 	}
 
 	// Establish database connection.
-	if backend, err := db.NewBackend(s.conf); err != nil {
+	backend := db.NewBackend(s.conf)
+	if err := backend.Init(); err != nil {
 		s.socketListener.Close()
 		backend.Close()
 		return err
@@ -198,6 +199,7 @@ func (s *Server) serveConnection(conn net.Conn) {
 }
 
 func (s *Server) Dispatch(req *Request) error {
+	s.logCommand(req.Cmd)
 	command := req.Cmd.Op
 	op := operations[command]
 	if op == nil {

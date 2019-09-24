@@ -40,7 +40,17 @@ func (op QueryOperation) ClientExec(cl *client.Client, args ...string) error {
 
 func (op QueryOperation) ServerExec(srv *server.Server, req *server.Request) error {
 	resp := msg.Response{}
-	// TODO
+Outer:
+	for _, task := range req.Cmd.Tasks {
+		for _, param := range req.Cmd.QueryParams {
+			if sum, err := srv.Query(task, param); err != nil {
+				resp.SetError(errors.Wrap(err, "A query failed"))
+				break Outer
+			} else {
+				resp.AddQuerySummaries(sum)
+			}
+		}
+	}
 	return srv.Answer(req, resp)
 }
 

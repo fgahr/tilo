@@ -25,8 +25,8 @@ func (s *Server) logDebugAll(format string, v ...interface{}) {
 }
 
 // Log a request at the appropriate debug level.
-func (s *Server) logRequest(req msg.Request) {
-	s.logDebugSome("Processing request: %v\n", req)
+func (s *Server) logCommand(cmd msg.Cmd) {
+	s.logDebugSome("Processing command: %v\n", cmd)
 }
 
 // Log a response at the appropriate debug level.
@@ -82,6 +82,6 @@ func (s *Server) RegisterListener(req *Request) error {
 	return nil
 }
 
-func (s *Server) QueryBackend(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
+func (s *Server) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
 	return s.backend.Query(taskName, param)
 }
