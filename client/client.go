@@ -116,6 +116,8 @@ func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
 	}
+	// FIXME: Pre-failure parts of the response should be printed as well.
+	// Response type might be rewritten.
 	if resp.Failed() {
 		c.err = resp.Err()
 	} else {
