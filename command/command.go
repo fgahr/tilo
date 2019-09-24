@@ -2,8 +2,10 @@
 package command
 
 import (
+	"fmt"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/server"
+	"os"
 )
 
 var opNames = make(map[string]bool)
@@ -35,8 +37,10 @@ func RegisterOperation(op Operation) {
 
 func PrintSingleOperationHelp(op Operation) {
 	// TODO
+	fmt.Fprintf(os.Stderr, "Currently no help message for operation '%s'\n", op.Command())
 }
 
 func PrintAllOperationsHelp() {
 	// TODO
+	fmt.Fprintln(os.Stderr, "Currently no help message exists.")
 }
