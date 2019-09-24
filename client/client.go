@@ -45,6 +45,7 @@ func Dispatch(conf *config.Opts, args []string) error {
 		panic("No such command: " + command)
 	}
 	cl := newClient(conf)
+	// TODO: Include operation help text if there is an error
 	return op.ClientExec(cl, args[1:]...)
 }
 

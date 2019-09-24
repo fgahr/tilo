@@ -1,14 +1,15 @@
 package argparse
 
 import (
-	"strings"
-	"github.com/pkg/errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
+	"strings"
 )
 
 const (
-	allTasks string = "--all"
+	// FIXME: Shouldn't be a constant here.
+	AllTasks string = ":all"
 )
 
 // Warn the user about arguments being unevaluated.
@@ -20,8 +21,8 @@ func WarnUnused(args []string) {
 
 // Split task names given as a comma-separated field, check for validity.
 func GetTaskNames(taskField string) ([]string, error) {
-	if taskField == allTasks {
-		return []string{allTasks}, nil
+	if taskField == AllTasks {
+		return []string{AllTasks}, nil
 	}
 
 	tasks := strings.Split(taskField, ",")
@@ -34,16 +35,11 @@ func GetTaskNames(taskField string) ([]string, error) {
 }
 
 // Whether the given name is valid for a task.
-// In particular, task names cannot contain whitespace and cannot start with
-// dashes.
 func validTaskName(name string) bool {
-	if strings.HasPrefix(name, "-") {
+	if strings.HasPrefix(name, ":") {
+		return false
+	} else if strings.ContainsAny(name, " \t\n") {
 		return false
 	}
-
-	if strings.ContainsAny(name, " \t\n") {
-		return false
-	}
-
 	return true
 }

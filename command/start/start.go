@@ -1,6 +1,7 @@
 package start
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
@@ -17,8 +18,17 @@ func (op StartOperation) Command() string {
 }
 
 func (op StartOperation) ClientExec(cl *client.Client, args ...string) error {
-	// TODO: Parse arguments, extract task name
-	taskName := "foo"
+	if len(args) == 0 {
+		return errors.New("No task name given")
+	}
+	tasks, err := argparse.GetTaskNames(args[0])
+	if err != nil {
+		return err
+	} else if len(tasks) > 1 || tasks[0] == argparse.AllTasks {
+		return errors.New("Cannot start more than one task")
+	}
+
+	taskName := tasks[0]
 	startCmd := msg.Cmd{
 		Op:   op.Command(),
 		Body: [][]string{[]string{taskName}},
