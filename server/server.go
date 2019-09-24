@@ -211,14 +211,14 @@ func (s *Server) Dispatch(req *Request) error {
 
 // Send a notification to all registered listeners.
 func (s *Server) notifyListeners() {
-	ntf := taskNotification(s.CurrentTask)
+	ntf := TaskNotification(s.CurrentTask)
 	if s.conf.DebugLevel == config.DebugAll {
 		log.Println("Notifying listeners:", ntf)
 	}
 	if len(s.listeners) > 0 {
 		remainingListeners := make([]NotificationListener, 0)
 		for _, lst := range s.listeners {
-			if err := lst.notify(ntf); err != nil {
+			if err := lst.Notify(ntf); err != nil {
 				log.Println("Could not notify listener, disconnecting:", err)
 				lst.disconnect()
 			} else {

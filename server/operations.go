@@ -79,15 +79,11 @@ func (s *Server) StopCurrentTask() (msg.Task, bool) {
 
 // Register the listener with the server. If it cannot be notified immediately,
 // an error is returned.
-func (s *Server) RegisterListener(req *Request) error {
+func (s *Server) RegisterListener(req *Request) (NotificationListener, error) {
 	lst := NotificationListener{req.Conn}
-	if err := lst.notify(taskNotification(s.CurrentTask)); err != nil {
-		lst.disconnect()
-		return errors.Wrap(err, "Could not notify listener, disconnecting")
-	}
 	// FIXME: Make thread-safe
 	s.listeners = append(s.listeners, lst)
-	return nil
+	return lst, nil
 }
 
 // Query the server's backend for a task's within the given parameters.

@@ -19,9 +19,9 @@ const (
 
 // Type repserenting a server's response to a client's request.
 type Response struct {
-	Status string
-	Error  string
-	Body   [][]string
+	Status string     `json:"status"`
+	Error  string     `json:"error"`
+	Body   [][]string `json:"body"`
 }
 
 // Type representing summary of a single request.

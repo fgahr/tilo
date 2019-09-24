@@ -39,10 +39,11 @@ func (op ListenOperation) ClientExec(cl *client.Client, args ...string) error {
 func (op ListenOperation) ServerExec(srv *server.Server, req *server.Request) error {
 	// NOTE: Connection has to be kept open!
 	resp := msg.Response{}
-	if err := srv.RegisterListener(req); err != nil {
+	if listener, err := srv.RegisterListener(req); err != nil {
 		resp.SetError(errors.Wrap(err, "Failed to add as listener"))
 	} else {
 		resp.SetListening()
+		defer listener.Notify(server.TaskNotification(srv.CurrentTask))
 	}
 	return srv.Answer(req, resp)
 }

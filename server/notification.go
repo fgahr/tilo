@@ -27,7 +27,7 @@ func shutdownNotification() Notification {
 // A notification about a task, presumed to be the currently set one.
 // If the task has been stopped, it sends an empty task name, signalling
 // idle state.
-func taskNotification(t msg.Task) Notification {
+func TaskNotification(t msg.Task) Notification {
 	if t.IsRunning() {
 		return Notification{Task: t.Name, Since: t.Started}
 	} else {
@@ -44,11 +44,12 @@ func (lst *NotificationListener) disconnect() error {
 }
 
 // Notify this listener.
-func (lst *NotificationListener) notify(ntf Notification) error {
+func (lst *NotificationListener) Notify(ntf Notification) error {
 	data, err := json.Marshal(ntf)
 	if err != nil {
 		panic(err)
 	}
+	// Ending messages with a linebreak makes writing listeners easier.
 	data = append(data, '\n')
 	_, err = lst.conn.Write(data)
 	return err

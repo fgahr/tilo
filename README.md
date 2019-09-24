@@ -50,7 +50,6 @@ If you want to help me squash them, feel free to.
 # GUI
 A system tray icon displaying the current server status can be found here:
 https://github.com/fgahr/tilo-systray
-As of writing it is broken and needs to be adjusted due to recent server changes.
 
 # TODOs
 ## New commands:
