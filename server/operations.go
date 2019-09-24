@@ -5,7 +5,6 @@ package server
 // with explanations.
 
 import (
-	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
@@ -38,9 +37,7 @@ func (s *Server) logResponse(resp msg.Response) {
 
 // Answer the request with the provided response.
 func (s *Server) Answer(req *Request, resp msg.Response) error {
-	enc := json.NewEncoder(req.Conn)
-	defer s.logResponse(resp)
-	return errors.Wrap(enc.Encode(resp), "Failed to send response")
+	return errors.Wrap(writeJsonLine(resp, req.Conn), "Failed to send response")
 }
 
 // Save a task to the backend database.

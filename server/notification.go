@@ -1,8 +1,8 @@
 package server
 
 import (
-	"encoding/json"
 	"github.com/fgahr/tilo/msg"
+	"github.com/pkg/errors"
 	"net"
 	"time"
 )
@@ -45,12 +45,5 @@ func (lst *NotificationListener) disconnect() error {
 
 // Notify this listener.
 func (lst *NotificationListener) Notify(ntf Notification) error {
-	data, err := json.Marshal(ntf)
-	if err != nil {
-		panic(err)
-	}
-	// Ending messages with a linebreak makes writing listeners easier.
-	data = append(data, '\n')
-	_, err = lst.conn.Write(data)
-	return err
+	return errors.Wrap(writeJsonLine(ntf, lst.conn), "Failed to send notification")
 }

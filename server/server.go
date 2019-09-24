@@ -8,6 +8,7 @@ import (
 	"github.com/fgahr/tilo/server/db"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -240,7 +241,9 @@ func (s *Server) shutdown() {
 	if len(s.listeners) > 0 {
 		log.Println("Disconnecting listeners")
 	}
+	ntf := shutdownNotification()
 	for _, lst := range s.listeners {
+		lst.Notify(ntf)
 		if err := lst.disconnect(); err != nil {
 			log.Println("Error closing listener connection:", err)
 		}
@@ -290,4 +293,16 @@ func StartInBackground(conf *config.Opts) (int, error) {
 		return 0, errors.Wrap(err, "Unable to start server process")
 	}
 	return proc.Pid, nil
+}
+
+// Serialize obj to JSON, add a linebreak, and send it to the writer.
+func writeJsonLine(obj interface{}, w io.Writer) error {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+	// Ending messages with a linebreak makes writing listeners easier.
+	data = append(data, '\n')
+	_, err = w.Write(data)
+	return err
 }
