@@ -27,40 +27,10 @@ type Response struct {
 // Type representing summary of a single request.
 type Summary struct {
 	Task    string
-	Details QueryDetails
+	Details QueryParam
 	Total   time.Duration
 	Start   time.Time
 	End     time.Time
-}
-
-// Create a response containing the given query summaries.
-func QueryResponse(summaries []Summary) Response {
-	var resp Response
-	if summaries == nil {
-		resp = Response{Status: RespSuccess}
-		resp.addToBody(line("Nothing found"))
-		return resp
-	}
-
-	resp = Response{Status: RespSuccess}
-	addNewline := false
-	for _, s := range summaries {
-		// Separate summaries by an empty line; skipped in first iteration.
-		if addNewline {
-			resp.addToBody(line())
-		} else {
-			addNewline = true
-		}
-		header := []string{s.Task}
-		for _, detail := range s.Details {
-			header = append(header, detail)
-		}
-		resp.addToBody(line(strings.Join(header, " ")))
-		resp.addToBody(line("First logged", formatTime(s.Start)))
-		resp.addToBody(line("Last logged", formatTime(s.End)))
-		resp.addToBody(line("Total time", s.Total.String()))
-	}
-	return resp
 }
 
 func (r *Response) SetError(err error) {
@@ -68,48 +38,61 @@ func (r *Response) SetError(err error) {
 		return
 	}
 
-	if r.Status != RespError {
+	if r.Failed() {
 		r.Status = RespError
 	}
 	r.Error = err.Error()
+}
+
+func (r *Response) Failed() bool {
+	return r.Status == RespError
+}
+
+func (r *Response) SetListening() {
+	if !r.Failed() {
+		r.Status = RespSuccess
+	}
+	r.addToBody(line("Listening"))
+}
+
+func (r *Response) AddPong() {
+	pongTime := time.Now().Format(time.RFC3339)
+	r.addToBody(line(pongTime))
 }
 
 func (r *Response) statusIsSet() bool {
 	return r.Status != ""
 }
 
-func (r *Response) AddCurrentTask(task *Task) {
+func (r *Response) AddCurrentTask(task Task) {
 	if task.HasEnded {
 		panic("Task not running but should be reported as started!")
 	}
 	r.addTaskWithDescription("Currently", task)
 }
 
-func (r *Response) AddStartedTask(task *Task) {
+func (r *Response) AddStartedTask(task Task) {
 	if task.HasEnded {
 		panic("Task not running but should be reported as started!")
 	}
 	r.addTaskWithDescription("Now", task)
 }
 
-func (r *Response) AddStoppedTask(task *Task) {
+func (r *Response) AddStoppedTask(task Task) {
 	if !task.HasEnded {
 		panic("Task needs to end before responding to stop!")
 	}
 	r.addTaskWithDescription("Stopped", task)
 }
 
-func (r *Response) AddAbortedTask(task *Task) {
+func (r *Response) AddAbortedTask(task Task) {
 	if !task.HasEnded {
 		panic("Task needs to end before responding to abort!")
 	}
 	r.addTaskWithDescription("Aborted", task)
 }
 
-func (r *Response) addTaskWithDescription(description string, task *Task) {
-	if task == nil {
-		return
-	}
+func (r *Response) addTaskWithDescription(description string, task Task) {
 	if !r.statusIsSet() {
 		r.Status = RespSuccess
 	}
@@ -126,8 +109,32 @@ func (r *Response) addTaskWithDescription(description string, task *Task) {
 	}
 }
 
+func (r *Response) AddShutdownMessage() {
+	if !r.statusIsSet() {
+		r.Status = RespSuccess
+	}
+	r.addToBody(line("Server shutting down: " + formatTime(time.Now())))
+}
+
+// Create a response containing the given query summaries.
+func (r *Response) AddQuerySummaries(sum []Summary) {
+	if !r.statusIsSet() {
+		r.Status = RespSuccess
+	}
+	for _, s := range sum {
+		header := []string{s.Task}
+		for _, detail := range s.Details {
+			header = append(header, detail)
+		}
+		r.addToBody(line(strings.Join(header, " ")))
+		r.addToBody(line("First logged", formatTime(s.Start)))
+		r.addToBody(line("Last logged", formatTime(s.End)))
+		r.addToBody(line("Total time", s.Total.String()))
+	}
+}
+
 // The error encapsulated in the response, if any.
-func (r Response) Err() error {
+func (r *Response) Err() error {
 	if r.Status == RespError {
 		return errors.New(r.Error)
 	}

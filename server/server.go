@@ -2,6 +2,7 @@
 package server
 
 import (
+	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/db"
@@ -9,27 +10,52 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"net"
-	"net/rpc"
-	"net/rpc/jsonrpc"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
-// A tilo server. When the configuration is provided, the remaining fields
+var operations = make(map[string]ServerOperation)
+
+type Request struct {
+	Conn net.Conn
+	Cmd  msg.Cmd
+}
+
+func (req *Request) Close() error {
+	return req.Conn.Close()
+}
+
+type ServerOperation interface {
+	// Execute server-side behaviour based on the command
+	ServerExec(srv *Server, req *Request) error
+}
+
+func RegisterOperation(name string, operation ServerOperation) {
+	operations[name] = operation
+}
+
+// A tilo Server. When the configuration is provided, the remaining fields
 // are filled by the .init() method.
-type server struct {
-	shutdownChan    chan struct{}   // Used to communicate shutdown requests
-	conf            *config.Params  // Configuration parameters for this instance
-	handler         *RequestHandler // Client request handler
-	rpcEndpoint     *rpc.Server     // Server for RPC requests
-	reqSockListener net.Listener    // Listener on the client request socket
-	ntfSockListener net.Listener    // Listener on the notification socket
+type Server struct {
+	shutdownChan   chan struct{}          // Used to communicate shutdown requests
+	conf           *config.Opts           // Configuration parameters for this instance
+	backend        *db.Backend            // The database backend
+	socketListener net.Listener           // Listener on the client request socket
+	CurrentTask    msg.Task               // The currently active task, if any
+	listeners      []NotificationListener // Listeners for task change notifications
+}
+
+// Create and configure a new server.
+func newServer(conf *config.Opts) *Server {
+	s := new(Server)
+	s.conf = conf
+	return s
 }
 
 // Start server operation.
 // This function will block until server shutdown.
-func Run(conf *config.Params) error {
+func Run(conf *config.Opts) error {
 	s := newServer(conf)
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
@@ -43,16 +69,9 @@ func Run(conf *config.Params) error {
 	return nil
 }
 
-// Create and configure a new server.
-func newServer(conf *config.Params) *server {
-	s := new(server)
-	s.conf = conf
-	return s
-}
-
 // Check whether the server is running.
-func IsRunning(params *config.Params) (bool, error) {
-	_, err := os.Stat(params.RequestSocket())
+func IsRunning(conf *config.Opts) (bool, error) {
+	_, err := os.Stat(conf.ServerSocket())
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -62,7 +81,7 @@ func IsRunning(params *config.Params) (bool, error) {
 }
 
 // Check whether the server is currently in shutdown.
-func (s *server) shuttingDown() bool {
+func (s *Server) shuttingDown() bool {
 	select {
 	case <-s.shutdownChan:
 		return true
@@ -77,7 +96,7 @@ func ensureDirExists(dir string) error {
 }
 
 // Start the server, initiating required connections.
-func (s *server) init() error {
+func (s *Server) init() error {
 	if running, err := IsRunning(s.conf); err != nil {
 		return err
 	} else if running {
@@ -96,41 +115,29 @@ func (s *server) init() error {
 	}
 
 	// Establish database connection.
-	backend, err := db.NewBackend(s.conf)
-	if err != nil {
-		s.reqSockListener.Close()
+	backend := db.NewBackend(s.conf)
+	if err := backend.Init(); err != nil {
+		s.socketListener.Close()
 		backend.Close()
 		return err
+	} else {
+		s.backend = backend
 	}
-
-	// Hand backend over to request handler.
-	handler := newRequestHandler(s.conf, s.shutdownChan, backend)
-	s.handler = handler
 
 	// Open request socket.
-	requestListener, err := net.Listen("unix", s.conf.RequestSocket())
-	if err != nil {
+	if requestListener, err := net.Listen("unix", s.conf.ServerSocket()); err != nil {
 		return err
+	} else {
+		s.socketListener = requestListener
 	}
-	s.reqSockListener = requestListener
 
-	// Open notification socket.
-	notificationListener, err := net.Listen("unix", s.conf.NotificationSocket())
-	if err != nil {
-		return err
-	}
-	s.ntfSockListener = notificationListener
-
-	// Configure endpoint for remote procedure calls.
-	rpcEndpoint := rpc.NewServer()
-	rpcEndpoint.Register(handler)
-	s.rpcEndpoint = rpcEndpoint
+	s.CurrentTask = msg.IdleTask()
 
 	return nil
 }
 
 // Enforce cleanup when the server stops.
-func (s *server) enforceCleanup() {
+func (s *Server) enforceCleanup() {
 	if r := recover(); r != nil {
 		log.Println("Shutting down.", r)
 	}
@@ -138,30 +145,24 @@ func (s *server) enforceCleanup() {
 }
 
 // Server main loop: process incoming requests.
-func (s *server) main() {
+func (s *Server) main() {
 	// Signal channel needs to be buffered, see documentation.
-	signalChan := make(chan os.Signal, 1)
-	reqChan := make(chan net.Conn)
-	ntfChan := make(chan net.Conn)
-	defer close(signalChan)
-	defer close(reqChan)
-	defer close(ntfChan)
+	sigChan := make(chan os.Signal, 1)
+	srvChan := make(chan net.Conn)
+	defer close(srvChan)
 
 	// Enable cleanup on receiving SIGTERM.
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	// Enable connection processing.
-	go s.waitForConnection(s.reqSockListener, reqChan)
-	go s.waitForConnection(s.ntfSockListener, ntfChan)
+	go s.waitForConnection(s.socketListener, srvChan)
 
 	log.Println("Starting server main loop.")
 MainLoop:
 	for {
 		select {
-		case rconn := <-reqChan:
-			s.serveRequestConnection(rconn)
-		case nconn := <-ntfChan:
-			s.serveNotificationConnection(nconn)
-		case sig := <-signalChan:
+		case conn := <-srvChan:
+			s.serveConnection(conn)
+		case sig := <-sigChan:
 			log.Println("Received signal: ", sig)
 			break MainLoop
 		case <-s.shutdownChan:
@@ -171,62 +172,82 @@ MainLoop:
 }
 
 // Wait for a client to connect. Send connections to the given channel.
-func (s *server) waitForConnection(lst net.Listener, channel chan<- net.Conn) {
+func (s *Server) waitForConnection(lst net.Listener, srvChan chan<- net.Conn) {
 	for {
-		conn, err := lst.Accept()
-		if err != nil {
+		if conn, err := lst.Accept(); err != nil {
 			if s.shuttingDown() {
 				// Ignore shutdown-related errors.
 				break
 			}
-			log.Println(err)
+			log.Println(errors.Wrap(err, "Error listening for connections"))
 		} else {
-			channel <- conn
+			srvChan <- conn
 		}
 	}
-}
-
-// Receive a request from the connection and process it. Send a response back.
-func (s *server) serveRequestConnection(conn net.Conn) {
-	codec := jsonrpc.NewServerCodec(conn)
-	s.rpcEndpoint.ServeCodec(codec)
 }
 
 // Serve a notification listener connection, keeping it open.
-func (s *server) serveNotificationConnection(conn net.Conn) {
-	s.handler.registerListener(&notificationListener{conn})
+func (s *Server) serveConnection(conn net.Conn) {
+	dec := json.NewDecoder(conn)
+	cmd := msg.Cmd{}
+	if err := dec.Decode(&cmd); err != nil {
+		log.Println(errors.Wrap(err, "Failed to decode command"))
+	}
+	if err := s.Dispatch(&Request{conn, cmd}); err != nil {
+		log.Println(errors.Wrap(err, "Unable to execute command"))
+	}
+}
+
+func (s *Server) Dispatch(req *Request) error {
+	s.logCommand(req.Cmd)
+	command := req.Cmd.Op
+	op := operations[command]
+	if op == nil {
+		return errors.New("No such operation: " + command)
+	}
+	op.ServerExec(s, req)
+	return nil
+}
+
+// Send a notification to all registered listeners.
+func (s *Server) notifyListeners() {
+	ntf := taskNotification(s.CurrentTask)
+	if s.conf.DebugLevel == config.DebugAll {
+		log.Println("Notifying listeners:", ntf)
+	}
+	if len(s.listeners) > 0 {
+		remainingListeners := make([]NotificationListener, 0)
+		for _, lst := range s.listeners {
+			if err := lst.notify(ntf); err != nil {
+				log.Println("Could not notify listener, disconnecting:", err)
+				lst.disconnect()
+			} else {
+				remainingListeners = append(remainingListeners, lst)
+			}
+		}
+		s.listeners = remainingListeners
+	}
 }
 
 // Initiate shutdown, closing open connections.
-func (s *server) shutdown() {
+func (s *Server) shutdown() {
 	var err error
 	log.Println("Shutting down server..")
-	if s.handler.currentTask.IsRunning() {
-		log.Println("Aborting current task:", s.handler.currentTask.Name)
-		err = s.handler.StopCurrentTask(msg.Request{}, nil)
-		if err != nil {
-			log.Println(err)
+	// TODO: Handle return values, possibly include in response? Skip?
+	s.StopCurrentTask()
+
+	// TODO: Close listener connections
+	if len(s.listeners) > 0 {
+		log.Println("Disconnecting listeners")
+	}
+	for _, lst := range s.listeners {
+		if err := lst.disconnect(); err != nil {
+			log.Println("Error closing listener connection:", err)
 		}
 	}
 
-	log.Print("Closing request socket..")
-	err = s.reqSockListener.Close()
-	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println("OK")
-	}
-
-	log.Print("Closing notification socket..")
-	err = s.ntfSockListener.Close()
-	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println("OK")
-	}
-
-	log.Print("Closing database connection..")
-	err = s.handler.close()
+	log.Print("Closing socket..")
+	err = s.socketListener.Close()
 	if err != nil {
 		log.Println(err)
 	} else {
@@ -245,15 +266,15 @@ func (s *server) shutdown() {
 }
 
 // Start a server in a background process.
-func StartInBackground(params *config.Params) error {
+func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
-	err := ensureDirExists(params.ConfDir)
+	err := ensureDirExists(conf.ConfDir)
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server in background")
+		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
-		Dir:   params.ConfDir,
+		Dir:   conf.ConfDir,
 		Env:   os.Environ(),
 		Files: []*os.File{nil, nil, nil},
 		Sys:   &sysProcAttr,
@@ -262,12 +283,11 @@ func StartInBackground(params *config.Params) error {
 	// No need to keep track of the spawned process
 	executable, err := os.Executable()
 	if err != nil {
-		return errors.Wrap(err, "Unable to determine server executable")
+		return 0, errors.Wrap(err, "Unable to determine server executable")
 	}
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
-		return errors.Wrap(err, "Unable to start server process")
+		return 0, errors.Wrap(err, "Unable to start server process")
 	}
-	log.Printf("Server started in background process: PID %d\n", proc.Pid)
-	return nil
+	return proc.Pid, nil
 }

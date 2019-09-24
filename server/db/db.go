@@ -16,19 +16,22 @@ import (
 
 // Type representing a database backend. At this point, only Sqlite is supported.
 type Backend struct {
-	conf *config.Params
+	conf *config.Opts
 	db   *sql.DB
 }
 
 // Create a new backend based on conf.
-func NewBackend(conf *config.Params) (*Backend, error) {
+func NewBackend(conf *config.Opts) *Backend {
 	backend := new(Backend)
 	backend.conf = conf
-	return backend, backend.init()
+	return backend
 }
 
 // Initialize the backend, setting up the database connection.
-func (b *Backend) init() error {
+func (b *Backend) Init() error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
 	db, err := sql.Open("sqlite3", b.conf.DBFile())
 	if err != nil {
 		return errors.Wrap(err, "Unable to establish database connection")
@@ -51,59 +54,68 @@ CREATE TABLE IF NOT EXISTS task (
 
 // Close the backend.
 func (b *Backend) Close() error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
 	return b.db.Close()
 }
 
 // Save a task to the database, usually after stopping it first.
-func (b *Backend) Save(task *msg.Task) error {
-	if !task.HasEnded {
+func (b *Backend) Save(task msg.Task) error {
+	if b == nil {
+		return errors.New("No backend present")
+	}
+	if task.IsRunning() {
 		panic("Cannot save an active task.")
 	}
 	_, err := b.db.Exec(
 		"INSERT INTO task (name, started, ended) VALUES (?, ?, ?);",
 		task.Name, task.Started.Unix(), task.Ended.Unix())
-	return errors.Wrap(err, "Error while saving a task")
+	return errors.Wrapf(err, "Error while saving %v", task)
 }
 
 // Query the database based on the given query details.
-func (b *Backend) Query(taskName string, detail msg.QueryDetails) ([]msg.Summary, error) {
+func (b *Backend) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
 	// TODO: Move this function to the handler instead and keep this out of the backend?
-	if len(detail) < 2 {
-		return nil, errors.Errorf("Invalid query details: %v", detail)
+	if len(param) < 2 {
+		return nil, errors.Errorf("Invalid query parameter: %v", param)
 	}
 
 	var sum []msg.Summary
+	if b == nil {
+		return sum, errors.New("No backend present")
+	}
 	var err error
-	switch detail[0] {
+	switch param[0] {
 	case msg.QryDay:
-		start, err := time.Parse("2006-01-02", detail[1])
+		start, err := time.Parse("2006-01-02", param[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 0, 1)
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryBetween:
-		if len(detail) < 3 {
-			return nil, errors.Errorf("Invalid query details: %v", detail)
+		if len(param) < 3 {
+			return nil, errors.Errorf("Invalid query parameter: %v", param)
 		}
-		start, err := time.Parse("2006-01-02", detail[1])
+		start, err := time.Parse("2006-01-02", param[1])
 		if err != nil {
 			return nil, err
 		}
-		end, err := time.Parse("2006-01-02", detail[2])
+		end, err := time.Parse("2006-01-02", param[2])
 		if err != nil {
 			return nil, err
 		}
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryMonth:
-		start, err := time.Parse("2006-01", detail[1])
+		start, err := time.Parse("2006-01", param[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 1, 0)
 		sum, err = b.queryTaskBetween(taskName, start, end)
 	case msg.QryYear:
-		start, err := time.Parse("2006", detail[1])
+		start, err := time.Parse("2006", param[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
@@ -116,7 +128,7 @@ func (b *Backend) Query(taskName string, detail msg.QueryDetails) ([]msg.Summary
 
 	// Setting the details allows to give better output.
 	for i, _ := range sum {
-		sum[i].Details = detail
+		sum[i].Details = param
 	}
 	return sum, nil
 }

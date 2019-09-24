@@ -2,173 +2,187 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 	"net"
-	"net/rpc"
-	"net/rpc/jsonrpc"
 	"os"
 	"text/tabwriter"
 	"time"
 )
 
-// A struct holding a connection to the server and performing communication
-// with it.
+var operations = make(map[string]ClientOperation)
+
+type ClientOperation interface {
+	// Execute client-side behaviour based on args
+	ClientExec(cl *Client, args ...string) error
+}
+
+// Make a client-side operation available.
+func RegisterOperation(name string, operation ClientOperation) {
+	operations[name] = operation
+}
+
 type Client struct {
-	conn           net.Conn       // Connection to the communication socket
-	requestTimeout time.Duration  // Timeout for requests
-	Conf           *config.Params // Configuration for this process
-	rpcClient      *rpc.Client    // RPC Client to call server-side functions
-	err            error          // Any error that may have occured
+	conf *config.Opts
+	conn net.Conn
+	err  error
 }
 
-// Create a new client to communicate with the server.
-func NewClient(params *config.Params) (*Client, error) {
-	c := Client{
-		conn:           nil,
-		requestTimeout: 5 * time.Second,
-		Conf:           params,
+// Read from the client's connection.
+func (cl *Client) Read(p []byte) (n int, err error) {
+	if cl.Failed() {
+		return 0, errors.Wrap(cl.err, "Cannot read from socket. Previous error")
 	}
-	return &c, nil
-}
-
-// Interact with the server based on the program's line arguments.
-func (c *Client) HandleArgs(args []string) error {
-	c.ensureServerIsRunning()
-	fnName, request := c.parseArgs(args)
-	c.connectToRequestSocket()
-	c.performRequest(fnName, request)
-	return c.err
-}
-
-// Listen to notifications from the server and print them to stdout.
-func (c *Client) PrintNotifications(w io.Writer) error {
-	c.ensureServerIsRunning()
-	conn, err := net.Dial("unix", c.Conf.NotificationSocket())
-	if err != nil {
-		return errors.Wrap(err, "Cannot connect to socket")
+	if cl.conn == nil {
+		panic("Connection not yet established.")
 	}
-	defer conn.Close()
-	_, err = io.Copy(w, conn)
-	return errors.Wrap(err, "Transmission failed")
+	return cl.conn.Read(p)
 }
 
-func (c *Client) parseArgs(args []string) (string, msg.Request) {
-	if c.err != nil {
-		return "", msg.Request{}
+// Execute the appropriate action based on the configuration and the arguments.
+func Dispatch(conf *config.Opts, args []string) error {
+	if len(args) == 0 {
+		panic("Empty argument list")
 	}
-	fnName, request, err := msg.ParseRequest(args, time.Now())
-	if err != nil {
-		c.err = errors.Wrap(err, "Unable to parse command line arguments")
-		return "", msg.Request{}
+	command := args[0]
+	op := operations[command]
+	if op == nil {
+		panic("No such command: " + command)
 	}
-	return fnName, request
+	cl := newClient(conf)
+	// TODO: Include operation help text if there is an error
+	return op.ClientExec(cl, args[1:]...)
 }
 
-// Close the client's connection to the server.
+func newClient(conf *config.Opts) *Client {
+	return &Client{conf: conf}
+}
+
+func (c *Client) Failed() bool {
+	return c.err != nil
+}
+
+func (c *Client) Connected() bool {
+	return c.conn != nil
+}
+
+// Close the client's underlying connection.
 func (c *Client) Close() error {
-	if c.conn == nil {
-		return errors.New("Client is not connected.")
-	}
 	err := c.conn.Close()
-	if err != nil {
-		return err
+	if !c.Failed() {
+		// NOTE: c.err can still be nil afterwards
+		c.err = err
 	}
+	return err
+}
+
+// The first error the client may have encountered. Nil on successful operation.
+func (c *Client) Error() error {
 	return c.err
 }
 
-// Establish a server connection.
-func (c *Client) connectToRequestSocket() {
-	if c.err != nil {
-		return
-	}
-	rpcClient, err := jsonrpc.Dial("unix", c.Conf.RequestSocket())
-	if err != nil {
-		c.err = err
-	}
-	c.rpcClient = rpcClient
+// Send the command to the server, receive and print the response.
+func (c *Client) ServerRoundTrip(cmd msg.Cmd) {
+	c.EstablishConnection()
+	c.SendToServer(cmd)
+	resp := c.ReceiveFromServer()
+	c.PrintResponse(resp)
 }
 
-// Perform a request-response-cycle, evaluating the server response to the request.
-func (c *Client) performRequest(fnName string, req msg.Request) {
-	if c.err != nil {
+// Establish a connection to the server.
+func (c *Client) EstablishConnection() {
+	if c.Failed() {
 		return
 	}
-
-	var resp msg.Response
-	err := c.rpcClient.Call(fnName, req, &resp)
-	if err != nil {
-		c.err = errors.Wrapf(
-			err, "Unable to call remote procedure %s for request %v", fnName, req)
-		return
-	}
-
-	err = resp.Err()
-	if err != nil {
-		c.err = err
-		return
+	c.EnsureServerIsRunning()
+	socket := c.conf.ServerSocket()
+	if conn, err := net.Dial("unix", socket); err != nil {
+		c.err = errors.Wrap(err, "Failed to connect to socket"+socket)
 	} else {
-		c.err = c.printResponse(resp)
-		return
+		c.conn = conn
 	}
 }
 
-// Print a response as formatted output.
-func (c *Client) printResponse(resp msg.Response) error {
-	// NOTE: This function could easily exist without depending on a client.
-	// However, this allows to configure the output in some way at a later date.
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
-	for _, line := range resp.Body {
-		noTab := true
-		for _, word := range line {
-			if noTab {
-				noTab = false
-			} else {
-				fmt.Fprint(w, "\t")
+// Send the command to the server.
+func (c *Client) SendToServer(cmd msg.Cmd) {
+	if c.Failed() {
+		return
+	}
+	if !c.Connected() {
+		c.err = errors.New("Cannot send: not connected")
+	}
+	enc := json.NewEncoder(c.conn)
+	c.err = errors.Wrap(enc.Encode(cmd), "Failed to send command to server")
+}
+
+// Receive a response from the server.
+func (c *Client) ReceiveFromServer() msg.Response {
+	resp := msg.Response{}
+	if c.Failed() {
+		resp.SetError(errors.Wrap(c.err, "Prior failure in communication"))
+		return resp
+	}
+	if !c.Connected() {
+		c.err = errors.New("Cannot receive: not connected")
+	}
+	dec := json.NewDecoder(c.conn)
+	c.err = errors.Wrap(dec.Decode(&resp), "Failed to decode response")
+	return resp
+}
+
+func (c *Client) PrintResponse(resp msg.Response) {
+	if c.Failed() {
+		return
+	}
+	// FIXME: Pre-failure parts of the response should be printed as well.
+	// Response type might be rewritten.
+	if resp.Failed() {
+		c.err = resp.Err()
+	} else {
+		w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
+		for _, line := range resp.Body {
+			noTab := true
+			for _, word := range line {
+				if noTab {
+					noTab = false
+				} else {
+					fmt.Fprint(w, "\t")
+				}
+				fmt.Fprint(w, word)
 			}
-			fmt.Fprint(w, word)
+			fmt.Fprint(w, "\n")
 		}
-		fmt.Fprint(w, "\n")
+		c.err = w.Flush()
 	}
-	return w.Flush()
 }
 
-// If the server is not already running, start it in a new background thread
-// and wait for it to come online.
-func (c *Client) ensureServerIsRunning() {
-	if c.err != nil {
-		return
-	}
-	// If connected we already know it is running.
-	if c.conn != nil {
-		return
-	}
-
+// Make sure the server is running, start it if necessary.
+func (c *Client) EnsureServerIsRunning() {
 	// Query server status.
-	running, err := server.IsRunning(c.Conf)
-	if err != nil {
+	if running, err := server.IsRunning(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not determine server status")
 		return
-	}
-	if running {
+	} else if running {
 		return
 	}
 
 	// Start server if it isn't running.
-	err = server.StartInBackground(c.Conf)
-	if err != nil {
+	if pid, err := server.StartInBackground(c.conf); err != nil {
 		c.err = errors.Wrap(err, "Could not start server")
+		return
+	} else {
+		fmt.Printf("Server started in background process: PID %d\n", pid)
 	}
 
 	// Wait for server to become available
 	notifyChan := make(chan struct{})
 	go func(ch chan<- struct{}) {
 		for {
-			up, _ := server.IsRunning(c.Conf)
+			up, _ := server.IsRunning(c.conf)
 			if up {
 				ch <- struct{}{}
 				return
@@ -184,4 +198,9 @@ func (c *Client) ensureServerIsRunning() {
 		close(notifyChan)
 		c.err = errors.New("Timeout exceeded trying to bring up server.")
 	}
+}
+
+// Run the server in the foreground.
+func (c *Client) RunServer() {
+	c.err = server.Run(c.conf)
 }

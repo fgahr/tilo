@@ -14,7 +14,7 @@ type Notification struct {
 }
 
 // An entity awaiting notifications about task changes.
-type notificationListener struct {
+type NotificationListener struct {
 	conn net.Conn // The connection to notify
 }
 
@@ -27,7 +27,7 @@ func shutdownNotification() Notification {
 // A notification about a task, presumed to be the currently set one.
 // If the task has been stopped, it sends an empty task name, signalling
 // idle state.
-func taskNotification(t *msg.Task) Notification {
+func taskNotification(t msg.Task) Notification {
 	if t.IsRunning() {
 		return Notification{Task: t.Name, Since: t.Started}
 	} else {
@@ -36,7 +36,7 @@ func taskNotification(t *msg.Task) Notification {
 }
 
 // Disconnect this listener.
-func (lst *notificationListener) disconnect() error {
+func (lst *NotificationListener) disconnect() error {
 	if lst == nil {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (lst *notificationListener) disconnect() error {
 }
 
 // Notify this listener.
-func (lst *notificationListener) notify(ntf Notification) error {
+func (lst *NotificationListener) notify(ntf Notification) error {
 	data, err := json.Marshal(ntf)
 	if err != nil {
 		panic(err)
