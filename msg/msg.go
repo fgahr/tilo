@@ -58,27 +58,11 @@ func ParseQueryArgs(args []string, cmd *Cmd) error {
 	}
 
 	if params, err := getQueryParams(args[1:], now); err != nil {
-		return errors.Wrap(err, "Unable to determine query arguments")
+		return errors.Wrap(err, "Unable to parse query arguments")
 	} else {
 		cmd.QueryParams = params
 	}
 	return nil
-}
-
-// TODO: Remove after replacing with argparse version
-// Split task names given as a comma-separated field, check for validity.
-func getTaskNames(taskField string) ([]string, error) {
-	if taskField == TskAllTasks {
-		return []string{TskAllTasks}, nil
-	}
-
-	tasks := strings.Split(taskField, ",")
-	for _, task := range tasks {
-		if !validTaskName(task) {
-			return nil, errors.Errorf("Invalid task name: %s", task)
-		}
-	}
-	return tasks, nil
 }
 
 // Whether the given name is valid for a task.

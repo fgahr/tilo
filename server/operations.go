@@ -81,3 +81,7 @@ func (s *Server) RegisterListener(req *Request) error {
 	s.listeners = append(s.listeners, lst)
 	return nil
 }
+
+func (s *Server) QueryBackend(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
+	return s.backend.Query(taskName, param)
+}
