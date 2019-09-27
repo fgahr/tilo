@@ -9,22 +9,32 @@ import (
 	"github.com/pkg/errors"
 )
 
+type CommandHandler struct {
+	command string
+}
+
+func (h *CommandHandler) HandleParams(_ *msg.Cmd, params []string) ([]string, error) {
+	if len(params) == 0 {
+		return params, errors.New("Require a command but none was given")
+	}
+	h.command = params[0]
+	return params[1:], nil
+}
+
 type ServerOperation struct {
-	// No state required
+	ch *CommandHandler
 }
 
 func (op ServerOperation) Command() string {
 	return "server"
 }
 
-func (op ServerOperation) ClientExec(cl *client.Client, args ...string) error {
-	if len(args) == 0 {
-		command.PrintSingleOperationHelp(op)
-		return nil
-	}
-	argparse.WarnUnused(args[1:])
+func (op ServerOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithParamHandler(op.ch)
+}
 
-	switch args[0] {
+func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {
+	switch op.ch.command {
 	case "start":
 		cl.EnsureServerIsRunning()
 	case "run":
@@ -46,10 +56,9 @@ func (op ServerOperation) Help() command.Doc {
 	return command.Doc{
 		ShortDescription: "Run in server mode",
 		LongDescription:  "Run in server mode",
-		Arguments:        []string{"start|run"},
 	}
 }
 
 func init() {
-	command.RegisterOperation(ServerOperation{})
+	command.RegisterOperation(ServerOperation{new(CommandHandler)})
 }

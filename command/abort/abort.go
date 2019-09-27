@@ -17,14 +17,13 @@ func (op AbortOperation) Command() string {
 	return "abort"
 }
 
-func (op AbortOperation) ClientExec(cl *client.Client, args ...string) error {
-	argparse.WarnUnused(args)
-	stopCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op AbortOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
+func (op AbortOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
-	cl.SendToServer(stopCmd)
+	cl.SendToServer(cmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
 	return errors.Wrap(cl.Error(), "Failed to stop the current task")
@@ -46,7 +45,6 @@ func (op AbortOperation) Help() command.Doc {
 	return command.Doc{
 		ShortDescription: "Abort the current task",
 		LongDescription:  "Abort the current task",
-		Arguments:        []string{},
 	}
 }
 

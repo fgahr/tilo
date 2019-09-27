@@ -9,17 +9,28 @@ import (
 	"time"
 )
 
+const (
+	// TODO: Should it be a public constant here? Other options? Package-private?
+	AllTasks string = ":all"
+)
+
 // Types of task list
 type tlist int
 
 type taskHandler interface {
 	handleTasks(cmd *msg.Cmd, args []string) ([]string, error)
+	// TODO: Better options here? Write to a writer?
+	describe() string
 }
 
 type noTaskHandler struct{}
 
 func (h noTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error) {
 	return args, nil
+}
+
+func (h noTaskHandler) describe() string {
+	return ""
 }
 
 type singleTaskHandler struct{}
@@ -40,6 +51,10 @@ func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, e
 		cmd.Tasks = tasks
 	}
 	return args[1:], nil
+}
+
+func (h singleTaskHandler) describe() string {
+	return "task"
 }
 
 type multiTaskHandler struct{}
@@ -65,6 +80,10 @@ func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, er
 	return args[1:], nil
 }
 
+func (h multiTaskHandler) describe() string {
+	return AllTasks + "|task,..."
+}
+
 type ParamHandler interface {
 	HandleParams(cmd *msg.Cmd, params []string) ([]string, error)
 }
@@ -77,12 +96,13 @@ func (h noParamHandler) HandleParams(cmd *msg.Cmd, params []string) ([]string, e
 
 // TODO: Move methods to builder?
 type Parser struct {
+	command      string
 	taskHandler  taskHandler
 	paramHandler ParamHandler
 }
 
-func NewParser() *Parser {
-	return &Parser{taskHandler: nil, paramHandler: nil}
+func CommandParser(command string) *Parser {
+	return &Parser{command: command, taskHandler: nil, paramHandler: nil}
 }
 
 func (p *Parser) WithoutTask() *Parser {
@@ -112,7 +132,7 @@ func (p *Parser) WithParamHandler(h ParamHandler) *Parser {
 
 // Parse the given arguments.
 func (p *Parser) Parse(args []string) (msg.Cmd, error) {
-	cmd := msg.Cmd{}
+	cmd := msg.Cmd{Op: p.command}
 	if p.taskHandler == nil {
 		panic("Argument parser does not know how to handle tasks")
 	}
@@ -131,11 +151,6 @@ func (p *Parser) Parse(args []string) (msg.Cmd, error) {
 		return cmd, nil
 	}
 }
-
-const (
-	// FIXME: Shouldn't be a constant here.
-	AllTasks string = ":all"
-)
 
 // Warn the user about arguments being unevaluated.
 func WarnUnused(args []string) {

@@ -19,14 +19,16 @@ func (op PingOperation) Command() string {
 	return "ping"
 }
 
-func (op PingOperation) ClientExec(cl *client.Client, args ...string) error {
-	argparse.WarnUnused(args)
-	pingCmd := msg.Cmd{Op: op.Command()}
+func (op PingOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	before := time.Now()
 	if _, err := fmt.Fprintln(os.Stderr, "Sending ping to server"); err != nil {
 		return err
 	}
-	cl.SendToServer(pingCmd)
+	cl.SendToServer(cmd)
 	cl.ReceiveFromServer() // Ignoring response
 	after := time.Now()
 	if cl.Failed() {

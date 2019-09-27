@@ -1,6 +1,7 @@
 package shutdown
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
@@ -16,13 +17,13 @@ func (op ShutdownOperation) Command() string {
 	return "shutdown"
 }
 
-func (op ShutdownOperation) ClientExec(cl *client.Client, args ...string) error {
-	shutdownCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op ShutdownOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
+func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
-	cl.SendToServer(shutdownCmd)
+	cl.SendToServer(cmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
 	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
@@ -44,11 +45,9 @@ func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) 
 }
 
 func (op ShutdownOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
 	return command.Doc{
 		ShortDescription: "Request server shutdown",
 		LongDescription:  "Request server shutdown",
-		Arguments:        []string{""},
 	}
 }
 

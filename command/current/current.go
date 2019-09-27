@@ -1,6 +1,7 @@
 package current
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
@@ -16,13 +17,13 @@ func (op CurrentOperation) Command() string {
 	return "current"
 }
 
-func (op CurrentOperation) ClientExec(cl *client.Client, args ...string) error {
-	currentCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op CurrentOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
+func (op CurrentOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
-	cl.SendToServer(currentCmd)
+	cl.SendToServer(cmd)
 	resp := cl.ReceiveFromServer()
 	cl.PrintResponse(resp)
 	return errors.Wrap(cl.Error(), "Failed to determine the current task")
@@ -40,11 +41,9 @@ func (op CurrentOperation) ServerExec(srv *server.Server, req *server.Request) e
 }
 
 func (op CurrentOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
 	return command.Doc{
 		ShortDescription: "Print the currently running task",
 		LongDescription:  "Print the currently running task",
-		Arguments:        []string{},
 	}
 }
 

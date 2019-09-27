@@ -4,6 +4,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
@@ -18,7 +19,8 @@ var operations = make(map[string]ClientOperation)
 
 type ClientOperation interface {
 	// Execute client-side behaviour based on args
-	ClientExec(cl *Client, args ...string) error
+	ClientExec(cl *Client, cmd msg.Cmd) error
+	Parser() *argparse.Parser
 }
 
 // Make a client-side operation available.
@@ -54,8 +56,12 @@ func Dispatch(conf *config.Opts, args []string) error {
 		panic("No such command: " + command)
 	}
 	cl := newClient(conf)
-	// TODO: Include operation help text if there is an error
-	return op.ClientExec(cl, args[1:]...)
+	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
+		// TODO: Wrap with operation's usage etc.
+		return err
+	} else {
+		return op.ClientExec(cl, cmd)
+	}
 }
 
 func newClient(conf *config.Opts) *Client {

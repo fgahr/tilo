@@ -14,7 +14,6 @@ var opNames = make(map[string]bool)
 type Doc struct {
 	ShortDescription string
 	LongDescription  string
-	Arguments        []string
 }
 
 type Operation interface {
