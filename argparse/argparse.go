@@ -14,9 +14,6 @@ const (
 	AllTasks string = ":all"
 )
 
-// Types of task list
-type tlist int
-
 type taskHandler interface {
 	handleTasks(cmd *msg.Cmd, args []string) ([]string, error)
 	// TODO: Better options here? Write to a writer?
