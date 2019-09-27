@@ -23,7 +23,11 @@ func (op ShutdownOperation) Parser() *argparse.Parser {
 }
 
 func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
-	cl.SendReceivePrint(cmd)
+	if cl.ServerIsRunning() {
+		cl.SendReceivePrint(cmd)
+	} else {
+		cl.PrintMessage("Server appears to be down. Nothing to do")
+	}
 	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
 }
 

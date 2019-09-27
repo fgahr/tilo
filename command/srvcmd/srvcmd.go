@@ -11,8 +11,8 @@ import (
 )
 
 const (
+	RUN   = "run"
 	START = "start"
-	STOP  = "stop"
 )
 
 type CommandHandler struct {
@@ -33,9 +33,9 @@ func (h *CommandHandler) HandleParams(_ *msg.Cmd, params []string) ([]string, er
 
 func isKnownCommand(str string) bool {
 	switch str {
-	case START:
+	case RUN:
 		return true
-	case STOP:
+	case START:
 		return true
 	default:
 		return false
@@ -58,7 +58,7 @@ func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {
 	switch op.ch.command {
 	case START:
 		cl.EnsureServerIsRunning()
-	case STOP:
+	case RUN:
 		cl.RunServer()
 	}
 	return cl.Error()

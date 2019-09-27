@@ -116,7 +116,7 @@ func (c *Client) EstablishConnection() {
 	c.EnsureServerIsRunning()
 	socket := c.conf.ServerSocket()
 	if conn, err := net.Dial("unix", socket); err != nil {
-		c.err = errors.Wrap(err, "Failed to connect to socket"+socket)
+		c.err = errors.Wrap(err, "Failed to connect to socket "+socket)
 	} else {
 		c.conn = conn
 	}
@@ -215,7 +215,18 @@ func (c *Client) EnsureServerIsRunning() {
 	}
 }
 
+// Whether the server appears to be running.
+func (c *Client) ServerIsRunning() bool {
+	running, _ := server.IsRunning(c.conf)
+	return running
+}
+
 // Run the server in the foreground.
 func (c *Client) RunServer() {
 	c.err = server.Run(c.conf)
+}
+
+// Print a message for the user.
+func (c *Client) PrintMessage(message string) {
+	fmt.Fprintln(os.Stderr, message)
 }
