@@ -49,11 +49,8 @@ func (op ListenOperation) ServerExec(srv *server.Server, req *server.Request) er
 	return srv.Answer(req, resp)
 }
 
-func (op ListenOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Listen for notifications",
-		LongDescription:  "Listen for notifications",
-	}
+func (op ListenOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

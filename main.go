@@ -38,8 +38,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := client.Dispatch(conf, args); err != nil {
-		// TODO: Consider printing without timestamp
-		log.Fatal(err)
+	if client.Dispatch(conf, args) {
+		os.Exit(0)
+	} else {
+		os.Exit(1)
 	}
 }

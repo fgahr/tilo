@@ -7,6 +7,12 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
+)
+
+const (
+	START = "start"
+	STOP  = "stop"
 )
 
 type CommandHandler struct {
@@ -17,8 +23,23 @@ func (h *CommandHandler) HandleParams(_ *msg.Cmd, params []string) ([]string, er
 	if len(params) == 0 {
 		return params, errors.New("Require a command but none was given")
 	}
-	h.command = params[0]
+	if isKnownCommand(params[0]) {
+		h.command = params[0]
+	} else {
+		return params, errors.New("Not a known server command: " + params[0])
+	}
 	return params[1:], nil
+}
+
+func isKnownCommand(str string) bool {
+	switch str {
+	case START:
+		return true
+	case STOP:
+		return true
+	default:
+		return false
+	}
 }
 
 type ServerOperation struct {
@@ -35,12 +56,10 @@ func (op ServerOperation) Parser() *argparse.Parser {
 
 func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {
 	switch op.ch.command {
-	case "start":
+	case START:
 		cl.EnsureServerIsRunning()
-	case "run":
+	case STOP:
 		cl.RunServer()
-	default:
-		command.PrintSingleOperationHelp(op)
 	}
 	return cl.Error()
 }
@@ -52,11 +71,8 @@ func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) er
 	return srv.Answer(req, resp)
 }
 
-func (op ServerOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Run in server mode",
-		LongDescription:  "Run in server mode",
-	}
+func (op ServerOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
+	"io"
 	"os"
 	"time"
 )
@@ -46,11 +47,8 @@ func (op PingOperation) ServerExec(srv *server.Server, req *server.Request) erro
 	return srv.Answer(req, resp)
 }
 
-func (op PingOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Check whether the server is running",
-		LongDescription:  "Check whether the server is running",
-	}
+func (op PingOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

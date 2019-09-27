@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type QueryOperation struct {
@@ -57,12 +58,8 @@ Outer:
 	return srv.Answer(req, resp)
 }
 
-func (op QueryOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
-	return command.Doc{
-		ShortDescription: "Query the backend",
-		LongDescription:  "Query the backend",
-	}
+func (op QueryOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

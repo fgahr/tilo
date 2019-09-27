@@ -9,6 +9,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"os"
 	"text/tabwriter"
@@ -20,7 +21,10 @@ var operations = make(map[string]ClientOperation)
 type ClientOperation interface {
 	// Execute client-side behaviour based on args
 	ClientExec(cl *Client, cmd msg.Cmd) error
+	// Command line argument parser for this operation
 	Parser() *argparse.Parser
+	// Write the operation's usage information to the given writer
+	PrintUsage(w io.Writer)
 }
 
 // Make a client-side operation available.
@@ -46,7 +50,7 @@ func (cl *Client) Read(p []byte) (n int, err error) {
 }
 
 // Execute the appropriate action based on the configuration and the arguments.
-func Dispatch(conf *config.Opts, args []string) error {
+func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
 		panic("Empty argument list")
 	}
@@ -58,9 +62,14 @@ func Dispatch(conf *config.Opts, args []string) error {
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
 		// TODO: Wrap with operation's usage etc.
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		op.PrintUsage(os.Stderr)
+		return false
+	} else if err := op.ClientExec(cl, cmd); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return false
 	} else {
-		return op.ClientExec(cl, cmd)
+		return true
 	}
 }
 

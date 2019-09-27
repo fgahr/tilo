@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type ShutdownOperation struct {
@@ -44,11 +45,8 @@ func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) 
 	return srv.Answer(req, resp)
 }
 
-func (op ShutdownOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Request server shutdown",
-		LongDescription:  "Request server shutdown",
-	}
+func (op ShutdownOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

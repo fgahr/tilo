@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type AbortOperation struct {
@@ -41,11 +42,8 @@ func (op AbortOperation) ServerExec(srv *server.Server, req *server.Request) err
 	return srv.Answer(req, resp)
 }
 
-func (op AbortOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Abort the current task",
-		LongDescription:  "Abort the current task",
-	}
+func (op AbortOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

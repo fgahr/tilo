@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type StartOperation struct {
@@ -45,11 +46,8 @@ func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) err
 	return srv.Answer(req, resp)
 }
 
-func (op StartOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Start a task",
-		LongDescription:  "Start a task",
-	}
+func (op StartOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

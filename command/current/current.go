@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type CurrentOperation struct {
@@ -40,11 +41,8 @@ func (op CurrentOperation) ServerExec(srv *server.Server, req *server.Request) e
 	return srv.Answer(req, resp)
 }
 
-func (op CurrentOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Print the currently running task",
-		LongDescription:  "Print the currently running task",
-	}
+func (op CurrentOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {
