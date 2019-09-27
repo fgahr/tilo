@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type StartOperation struct {
@@ -17,28 +18,13 @@ func (op StartOperation) Command() string {
 	return "start"
 }
 
-func (op StartOperation) ClientExec(cl *client.Client, args ...string) error {
-	if len(args) == 0 {
-		return errors.New("No task name given")
-	}
-	tasks, err := argparse.GetTaskNames(args[0])
-	if err != nil {
-		return err
-	} else if len(tasks) > 1 || tasks[0] == argparse.AllTasks {
-		return errors.New("Cannot start more than one task")
-	}
+func (op StartOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithSingleTask().WithoutParams()
+}
 
-	taskName := tasks[0]
-	startCmd := msg.Cmd{
-		Op:    op.Command(),
-		Tasks: []string{taskName},
-	}
-
-	cl.EstablishConnection()
-	cl.SendToServer(startCmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
-	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", taskName)
+func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+	cl.SendReceivePrint(cmd)
+	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.Tasks[0])
 }
 
 func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) error {
@@ -57,13 +43,8 @@ func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) err
 	return srv.Answer(req, resp)
 }
 
-func (op StartOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
-	return command.Doc{
-		ShortDescription: "Start a task",
-		LongDescription:  "Start a task",
-		Arguments:        []string{"<task>"},
-	}
+func (op StartOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

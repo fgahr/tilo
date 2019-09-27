@@ -2,6 +2,7 @@ package argparse
 
 import (
 	"fmt"
+	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"os"
 	"strings"
@@ -9,9 +10,144 @@ import (
 )
 
 const (
-	// FIXME: Shouldn't be a constant here.
+	// TODO: Should it be a public constant here? Other options? Package-private?
 	AllTasks string = ":all"
 )
+
+type taskHandler interface {
+	handleTasks(cmd *msg.Cmd, args []string) ([]string, error)
+	// TODO: Better options here? Write to a writer?
+	describe() string
+}
+
+type noTaskHandler struct{}
+
+func (h noTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error) {
+	return args, nil
+}
+
+func (h noTaskHandler) describe() string {
+	return ""
+}
+
+type singleTaskHandler struct{}
+
+func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error) {
+	if len(args) == 0 {
+		return args, errors.New("Require single task but none is given")
+	}
+	if tasks, err := GetTaskNames(args[0]); err != nil {
+		return args, err
+	} else if len(tasks) == 0 {
+		return args, errors.New("Require single task but none is given")
+	} else if len(tasks) > 1 {
+		return args, errors.New("Require single task but several are given")
+	} else if tasks[0] == AllTasks {
+		return args, errors.New("Require single task name but found '" + AllTasks + "'")
+	} else {
+		cmd.Tasks = tasks
+	}
+	return args[1:], nil
+}
+
+func (h singleTaskHandler) describe() string {
+	return "task"
+}
+
+type multiTaskHandler struct{}
+
+func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error) {
+	if len(args) == 0 {
+		return args, errors.New("Require one or more tasks but none is given")
+	}
+	if tasks, err := GetTaskNames(args[0]); err != nil {
+		return args, err
+	} else if len(tasks) == 0 {
+		return args, errors.New("Require one or more tasks but none is given")
+	} else {
+		if len(tasks) > 1 {
+			for _, task := range tasks {
+				if task == AllTasks {
+					return args, errors.New("When given, '" + AllTasks + "' must be the only task")
+				}
+			}
+		}
+		cmd.Tasks = tasks
+	}
+	return args[1:], nil
+}
+
+func (h multiTaskHandler) describe() string {
+	return AllTasks + "|task,..."
+}
+
+type ParamHandler interface {
+	HandleParams(cmd *msg.Cmd, params []string) ([]string, error)
+}
+
+type noParamHandler struct{}
+
+func (h noParamHandler) HandleParams(cmd *msg.Cmd, params []string) ([]string, error) {
+	return params, nil
+}
+
+// TODO: Move methods to builder?
+type Parser struct {
+	command      string
+	taskHandler  taskHandler
+	paramHandler ParamHandler
+}
+
+func CommandParser(command string) *Parser {
+	return &Parser{command: command, taskHandler: nil, paramHandler: nil}
+}
+
+func (p *Parser) WithoutTask() *Parser {
+	p.taskHandler = new(noTaskHandler)
+	return p
+}
+
+func (p *Parser) WithSingleTask() *Parser {
+	p.taskHandler = new(singleTaskHandler)
+	return p
+}
+
+func (p *Parser) WithMultipleTasks() *Parser {
+	p.taskHandler = new(multiTaskHandler)
+	return p
+}
+
+func (p *Parser) WithoutParams() *Parser {
+	p.paramHandler = new(noParamHandler)
+	return p
+}
+
+func (p *Parser) WithParamHandler(h ParamHandler) *Parser {
+	p.paramHandler = h
+	return p
+}
+
+// Parse the given arguments.
+func (p *Parser) Parse(args []string) (msg.Cmd, error) {
+	cmd := msg.Cmd{Op: p.command}
+	if p.taskHandler == nil {
+		panic("Argument parser does not know how to handle tasks")
+	}
+	restArgs, err := p.taskHandler.handleTasks(&cmd, args)
+	if err != nil {
+		return cmd, err
+	}
+	if p.paramHandler == nil {
+		panic("Argument parser does not know how to handle parameters")
+	}
+	unusedArgs, err := p.paramHandler.HandleParams(&cmd, restArgs)
+	if err != nil {
+		return cmd, err
+	} else {
+		WarnUnused(unusedArgs)
+		return cmd, nil
+	}
+}
 
 // Warn the user about arguments being unevaluated.
 func WarnUnused(args []string) {

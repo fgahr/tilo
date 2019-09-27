@@ -19,12 +19,13 @@ func (op ListenOperation) Command() string {
 	return "listen"
 }
 
-func (op ListenOperation) ClientExec(cl *client.Client, args ...string) error {
-	argparse.WarnUnused(args)
-	listenCmd := msg.Cmd{Op: "listen"}
+func (op ListenOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
+func (op ListenOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
-	cl.SendToServer(listenCmd)
+	cl.SendToServer(cmd)
 	resp := cl.ReceiveFromServer()
 	if resp.Err() != nil {
 		return resp.Err()
@@ -48,12 +49,8 @@ func (op ListenOperation) ServerExec(srv *server.Server, req *server.Request) er
 	return srv.Answer(req, resp)
 }
 
-func (op ListenOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Listen for notifications",
-		LongDescription:  "Listen for notifications",
-		Arguments:        []string{},
-	}
+func (op ListenOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

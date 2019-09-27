@@ -1,11 +1,13 @@
 package current
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type CurrentOperation struct {
@@ -16,15 +18,12 @@ func (op CurrentOperation) Command() string {
 	return "current"
 }
 
-func (op CurrentOperation) ClientExec(cl *client.Client, args ...string) error {
-	currentCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op CurrentOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
-	cl.EstablishConnection()
-	cl.SendToServer(currentCmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+func (op CurrentOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to determine the current task")
 }
 
@@ -39,13 +38,8 @@ func (op CurrentOperation) ServerExec(srv *server.Server, req *server.Request) e
 	return srv.Answer(req, resp)
 }
 
-func (op CurrentOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
-	return command.Doc{
-		ShortDescription: "Print the currently running task",
-		LongDescription:  "Print the currently running task",
-		Arguments:        []string{},
-	}
+func (op CurrentOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

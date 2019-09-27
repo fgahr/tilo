@@ -4,10 +4,12 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"os"
 	"text/tabwriter"
@@ -18,12 +20,40 @@ var operations = make(map[string]ClientOperation)
 
 type ClientOperation interface {
 	// Execute client-side behaviour based on args
-	ClientExec(cl *Client, args ...string) error
+	ClientExec(cl *Client, cmd msg.Cmd) error
+	// Command line argument parser for this operation
+	Parser() *argparse.Parser
+	// Write the operation's usage information to the given writer
+	PrintUsage(w io.Writer)
 }
 
 // Make a client-side operation available.
 func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
+}
+
+// Execute the appropriate action based on the configuration and the arguments.
+func Dispatch(conf *config.Opts, args []string) bool {
+	if len(args) == 0 {
+		panic("Empty argument list")
+	}
+	command := args[0]
+	op := operations[command]
+	if op == nil {
+		panic("No such command: " + command)
+	}
+	cl := newClient(conf)
+	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
+		// TODO: Wrap with operation's usage etc.
+		fmt.Fprintln(os.Stderr, err)
+		op.PrintUsage(os.Stderr)
+		return false
+	} else if err := op.ClientExec(cl, cmd); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return false
+	} else {
+		return true
+	}
 }
 
 type Client struct {
@@ -41,21 +71,6 @@ func (cl *Client) Read(p []byte) (n int, err error) {
 		panic("Connection not yet established.")
 	}
 	return cl.conn.Read(p)
-}
-
-// Execute the appropriate action based on the configuration and the arguments.
-func Dispatch(conf *config.Opts, args []string) error {
-	if len(args) == 0 {
-		panic("Empty argument list")
-	}
-	command := args[0]
-	op := operations[command]
-	if op == nil {
-		panic("No such command: " + command)
-	}
-	cl := newClient(conf)
-	// TODO: Include operation help text if there is an error
-	return op.ClientExec(cl, args[1:]...)
 }
 
 func newClient(conf *config.Opts) *Client {
@@ -86,7 +101,7 @@ func (c *Client) Error() error {
 }
 
 // Send the command to the server, receive and print the response.
-func (c *Client) ServerRoundTrip(cmd msg.Cmd) {
+func (c *Client) SendReceivePrint(cmd msg.Cmd) {
 	c.EstablishConnection()
 	c.SendToServer(cmd)
 	resp := c.ReceiveFromServer()
@@ -101,7 +116,7 @@ func (c *Client) EstablishConnection() {
 	c.EnsureServerIsRunning()
 	socket := c.conf.ServerSocket()
 	if conn, err := net.Dial("unix", socket); err != nil {
-		c.err = errors.Wrap(err, "Failed to connect to socket"+socket)
+		c.err = errors.Wrap(err, "Failed to connect to socket "+socket)
 	} else {
 		c.conn = conn
 	}
@@ -200,7 +215,18 @@ func (c *Client) EnsureServerIsRunning() {
 	}
 }
 
+// Whether the server appears to be running.
+func (c *Client) ServerIsRunning() bool {
+	running, _ := server.IsRunning(c.conf)
+	return running
+}
+
 // Run the server in the foreground.
 func (c *Client) RunServer() {
 	c.err = server.Run(c.conf)
+}
+
+// Print a message for the user.
+func (c *Client) PrintMessage(message string) {
+	fmt.Fprintln(os.Stderr, message)
 }

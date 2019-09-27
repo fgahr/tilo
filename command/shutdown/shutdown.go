@@ -1,11 +1,13 @@
 package shutdown
 
 import (
+	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type ShutdownOperation struct {
@@ -16,15 +18,16 @@ func (op ShutdownOperation) Command() string {
 	return "shutdown"
 }
 
-func (op ShutdownOperation) ClientExec(cl *client.Client, args ...string) error {
-	shutdownCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op ShutdownOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
-	cl.EstablishConnection()
-	cl.SendToServer(shutdownCmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+	if cl.ServerIsRunning() {
+		cl.SendReceivePrint(cmd)
+	} else {
+		cl.PrintMessage("Server appears to be down. Nothing to do")
+	}
 	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
 }
 
@@ -43,13 +46,8 @@ func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) 
 	return srv.Answer(req, resp)
 }
 
-func (op ShutdownOperation) Help() command.Doc {
-	// TODO: Improve, figure out what's required
-	return command.Doc{
-		ShortDescription: "Request server shutdown",
-		LongDescription:  "Request server shutdown",
-		Arguments:        []string{""},
-	}
+func (op ShutdownOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

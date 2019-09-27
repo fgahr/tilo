@@ -7,6 +7,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type StopOperation struct {
@@ -17,16 +18,12 @@ func (op StopOperation) Command() string {
 	return "stop"
 }
 
-func (op StopOperation) ClientExec(cl *client.Client, args ...string) error {
-	argparse.WarnUnused(args)
-	stopCmd := msg.Cmd{
-		Op: op.Command(),
-	}
+func (op StopOperation) Parser() *argparse.Parser {
+	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
 
-	cl.EstablishConnection()
-	cl.SendToServer(stopCmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+func (op StopOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to stop the current task")
 }
 
@@ -45,12 +42,8 @@ func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) erro
 	return srv.Answer(req, resp)
 }
 
-func (op StopOperation) Help() command.Doc {
-	return command.Doc{
-		ShortDescription: "Stop the current task",
-		LongDescription:  "Stop the current task",
-		Arguments:        []string{},
-	}
+func (op StopOperation) PrintUsage(w io.Writer) {
+	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

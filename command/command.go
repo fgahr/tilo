@@ -5,25 +5,17 @@ import (
 	"fmt"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/server"
+	"io"
 	"os"
 )
 
 var opNames = make(map[string]bool)
-
-// TODO: Define proper structure
-type Doc struct {
-	ShortDescription string
-	LongDescription  string
-	Arguments        []string
-}
 
 type Operation interface {
 	client.ClientOperation
 	server.ServerOperation
 	// The command identifier
 	Command() string
-	// Documentation for this operation
-	Help() Doc
 }
 
 func RegisterOperation(op Operation) {
@@ -35,12 +27,12 @@ func RegisterOperation(op Operation) {
 	server.RegisterOperation(op.Command(), op)
 }
 
-func PrintSingleOperationHelp(op Operation) {
-	// TODO
-	fmt.Fprintf(os.Stderr, "Currently no help message for operation '%s'\n", op.Command())
+func PrintSingleOperationHelp(op Operation, w io.Writer) {
+	// TODO: Add actual help message
+	fmt.Fprintf(w, "Currently no help message for operation '%s'\n", op.Command())
 }
 
 func PrintAllOperationsHelp() {
-	// TODO
+	// TODO: Use parser description
 	fmt.Fprintln(os.Stderr, "Currently no help message exists.")
 }
