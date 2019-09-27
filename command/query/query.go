@@ -33,11 +33,7 @@ func (op QueryOperation) Parser() *argparse.Parser {
 }
 
 func (op QueryOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
-	// TODO: Abstract this pattern away
-	cl.EstablishConnection()
-	cl.SendToServer(cmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to query the server")
 }
 

@@ -32,23 +32,6 @@ func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
 }
 
-type Client struct {
-	conf *config.Opts
-	conn net.Conn
-	err  error
-}
-
-// Read from the client's connection.
-func (cl *Client) Read(p []byte) (n int, err error) {
-	if cl.Failed() {
-		return 0, errors.Wrap(cl.err, "Cannot read from socket. Previous error")
-	}
-	if cl.conn == nil {
-		panic("Connection not yet established.")
-	}
-	return cl.conn.Read(p)
-}
-
 // Execute the appropriate action based on the configuration and the arguments.
 func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
@@ -71,6 +54,23 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	} else {
 		return true
 	}
+}
+
+type Client struct {
+	conf *config.Opts
+	conn net.Conn
+	err  error
+}
+
+// Read from the client's connection.
+func (cl *Client) Read(p []byte) (n int, err error) {
+	if cl.Failed() {
+		return 0, errors.Wrap(cl.err, "Cannot read from socket. Previous error")
+	}
+	if cl.conn == nil {
+		panic("Connection not yet established.")
+	}
+	return cl.conn.Read(p)
 }
 
 func newClient(conf *config.Opts) *Client {
@@ -101,7 +101,7 @@ func (c *Client) Error() error {
 }
 
 // Send the command to the server, receive and print the response.
-func (c *Client) ServerRoundTrip(cmd msg.Cmd) {
+func (c *Client) SendReceivePrint(cmd msg.Cmd) {
 	c.EstablishConnection()
 	c.SendToServer(cmd)
 	resp := c.ReceiveFromServer()

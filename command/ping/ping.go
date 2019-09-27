@@ -25,6 +25,7 @@ func (op PingOperation) Parser() *argparse.Parser {
 }
 
 func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+	cl.EstablishConnection()
 	before := time.Now()
 	if _, err := fmt.Fprintln(os.Stderr, "Sending ping to server"); err != nil {
 		return err

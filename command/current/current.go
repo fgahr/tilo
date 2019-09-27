@@ -23,10 +23,7 @@ func (op CurrentOperation) Parser() *argparse.Parser {
 }
 
 func (op CurrentOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
-	cl.EstablishConnection()
-	cl.SendToServer(cmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to determine the current task")
 }
 

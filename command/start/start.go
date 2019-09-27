@@ -23,10 +23,7 @@ func (op StartOperation) Parser() *argparse.Parser {
 }
 
 func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
-	cl.EstablishConnection()
-	cl.SendToServer(cmd)
-	resp := cl.ReceiveFromServer()
-	cl.PrintResponse(resp)
+	cl.SendReceivePrint(cmd)
 	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.Tasks[0])
 }
 
