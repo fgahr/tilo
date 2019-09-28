@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	DebugNone = 0
-	DebugSome = 1
-	DebugAll  = 2
+	LOG_OFF = iota
+	LOG_TRACE
+	LOG_WARN
+	LOG_INFO
+	LOG_DEBUG
 )
 
 // Configuration parameters.
@@ -18,7 +20,7 @@ type Opts struct {
 	TempDir    string // Where to keep the domain socket.
 	DBFileName string // The name of the DB file.
 	SocketName string // The name of the request socket file.
-	DebugLevel int    // Determines the amount of additional log output.
+	LogLevel   int    // Determines the amount of additional log output.
 }
 
 // The socket to use for requests to the server.
@@ -44,6 +46,6 @@ func DefaultConfig() (*Opts, error) {
 		TempDir:    tempDir,
 		DBFileName: "tilo.db",
 		SocketName: "server",
-		DebugLevel: DebugAll, // TODO: Make this a non-default and flexible.
+		LogLevel:   LOG_TRACE, // TODO: Make this a non-default and flexible.
 	}, nil
 }
