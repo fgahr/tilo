@@ -274,7 +274,7 @@ func StartInBackground(conf *config.Opts) (int, error) {
 	}
 	procAttr := os.ProcAttr{
 		Dir:   conf.ConfDir,
-		Env:   os.Environ(),
+		Env:   append(os.Environ(), conf.AsEnvironVars()...),
 		Files: []*os.File{nil, nil, nil},
 		Sys:   &sysProcAttr,
 	}

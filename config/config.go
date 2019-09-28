@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 const (
@@ -14,23 +15,40 @@ const (
 	LOG_DEBUG
 )
 
+const (
+	ENV_VAR_PREFIX = "__TILO_"
+)
+
 // Configuration parameters.
 type Opts struct {
-	ConfDir    string // Where to keep the DB file.
-	TempDir    string // Where to keep the domain socket.
-	DBFileName string // The name of the DB file.
-	SocketName string // The name of the request socket file.
-	LogLevel   int    // Determines the amount of additional log output.
+	ConfDir    string `env:"CONFIG_DIR"`    // Where to keep the DB file.
+	TempDir    string `env:"TEMP_DIR"`      // Where to keep the domain socket.
+	DBFileName string `env:"DB_FILE_NAME"`  // The name of the DB file.
+	Socket     string `env:"SERVER_SOCKET"` // The name of the request socket file.
+	LogLevel   int    `env:"LOG_LEVEL"`     // Determines the amount of additional log output.
 }
 
 // The socket to use for requests to the server.
 func (p *Opts) ServerSocket() string {
-	return filepath.Join(p.TempDir, p.SocketName)
+	return filepath.Join(p.TempDir, p.Socket)
 }
 
 // The database file used by SQLite.
 func (p *Opts) DBFile() string {
 	return filepath.Join(p.ConfDir, p.DBFileName)
+}
+
+func (p *Opts) AsEnvironVars() []string {
+	v := reflect.ValueOf(*p)
+	result := make([]string, v.NumField())
+	for i := 0; i < v.NumField(); i++ {
+		fieldInfo := v.Type().Field(i)
+		tag := fieldInfo.Tag
+		name := tag.Get("env")
+		result[i] = fmt.Sprintf("%s%s=%v", ENV_VAR_PREFIX, name, v.Field(i))
+
+	}
+	return result
 }
 
 // Create a set of default parameters.
@@ -45,7 +63,7 @@ func DefaultConfig() (*Opts, error) {
 		ConfDir:    confDir,
 		TempDir:    tempDir,
 		DBFileName: "tilo.db",
-		SocketName: "server",
+		Socket:     "server",
 		LogLevel:   LOG_TRACE, // TODO: Make this a non-default and flexible.
 	}, nil
 }
