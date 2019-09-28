@@ -47,17 +47,10 @@ type Server struct {
 	listeners      []NotificationListener // Listeners for task change notifications
 }
 
-// Create and configure a new server.
-func newServer(conf *config.Opts) *Server {
-	s := new(Server)
-	s.conf = conf
-	return s
-}
-
 // Start server operation.
 // This function will block until server shutdown.
 func Run(conf *config.Opts) error {
-	s := newServer(conf)
+	s := Server{conf: conf}
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
 	}
@@ -291,6 +284,9 @@ func StartInBackground(conf *config.Opts) (int, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "Unable to determine server executable")
 	}
+	// NOTE: Due to dependency resolution issues, there is no direct way to tie
+	// the arguments to the corresponding operation and its arguments. It could
+	// be done indirectly.
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
 		return 0, errors.Wrap(err, "Unable to start server process")
