@@ -17,29 +17,34 @@ const (
 
 const (
 	ENV_VAR_PREFIX = "__TILO_"
+	CLI_VAR_PREFIX = "--"
 )
+
+func GetConfig(args []string) (*Opts, []string) {
+	// TODO
+	return defaultConfig(), args
+}
 
 // Configuration parameters.
 type Opts struct {
-	ConfDir    string `env:"CONFIG_DIR"`    // Where to keep the DB file.
-	TempDir    string `env:"TEMP_DIR"`      // Where to keep the domain socket.
-	DBFileName string `env:"DB_FILE_NAME"`  // The name of the DB file.
-	Socket     string `env:"SERVER_SOCKET"` // The name of the request socket file.
-	LogLevel   int    `env:"LOG_LEVEL"`     // Determines the amount of additional log output.
+	ConfFile string `cli:"config-file" env:"CONFIG_FILE"`  // The location of the configuration file.
+	DBFile   string `cli:"db-file" env:"DB_FILE"`          // The name of the DB file.
+	Socket   string `cli:"socket" env:"SERVER_SOCKET"`     // The name of the request socket file.
+	Protocol string `cli:"protocol" env:"SOCKET_PROTOCOL"` // The protocol to use for server communication.
+	LogLevel int    `cli:"log-level" env:"LOG_LEVEL"`      // Determines the amount of additional log output.
 }
 
-// The socket to use for requests to the server.
-func (p *Opts) ServerSocket() string {
-	return filepath.Join(p.TempDir, p.Socket)
+func (c *Opts) ConfigDir() string {
+	return filepath.Dir(c.ConfFile)
 }
 
-// The database file used by SQLite.
-func (p *Opts) DBFile() string {
-	return filepath.Join(p.ConfDir, p.DBFileName)
+func (c *Opts) SocketDir() string {
+	return filepath.Dir(c.Socket)
 }
 
-func (p *Opts) AsEnvironVars() []string {
-	v := reflect.ValueOf(*p)
+// Emit the configuration in a format suitable as environment variables.
+func (c *Opts) AsEnvKeyValue() []string {
+	v := reflect.ValueOf(*c)
 	result := make([]string, v.NumField())
 	for i := 0; i < v.NumField(); i++ {
 		fieldInfo := v.Type().Field(i)
@@ -52,18 +57,22 @@ func (p *Opts) AsEnvironVars() []string {
 }
 
 // Create a set of default parameters.
-func DefaultConfig() (*Opts, error) {
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", "tilo", os.Getuid()))
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	confDir := filepath.Join(homeDir, ".config", "tilo")
+func defaultConfig() *Opts {
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", "tilo", os.Getuid()), "server")
+	// There's nothing we can do with an error here so we ignore it.
+	homeDir, _ := os.UserHomeDir()
+	confFile := filepath.Join(homeDir, ".config", "tilo", "config")
+	dbFile := filepath.Join(homeDir, ".config", "tilo", "tilo.db")
 	return &Opts{
-		ConfDir:    confDir,
-		TempDir:    tempDir,
-		DBFileName: "tilo.db",
-		Socket:     "server",
-		LogLevel:   LOG_TRACE, // TODO: Make this a non-default and flexible.
-	}, nil
+		ConfFile: confFile,
+		DBFile:   dbFile,
+		Socket:   socket,
+		Protocol: "unix",
+		LogLevel: LOG_INFO,
+	}
+}
+
+func (c *Opts) ApplyCommandLine(args []string) *Opts {
+	// TODO
+	return c
 }

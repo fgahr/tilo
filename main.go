@@ -14,7 +14,7 @@ import (
 	_ "github.com/fgahr/tilo/command/start"
 	_ "github.com/fgahr/tilo/command/stop"
 	"github.com/fgahr/tilo/config"
-	"log"
+	_ "github.com/fgahr/tilo/server/backend/sqlite3"
 	"os"
 )
 
@@ -31,14 +31,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	// TODO: Parse config-related options, read environment/config file
-	conf, err := config.DefaultConfig()
-	if err != nil {
-		// TODO: Consider printing without timestamp
-		log.Fatal(err)
-	}
+	conf, restArgs := config.GetConfig(args)
 
-	if client.Dispatch(conf, args) {
+	if client.Dispatch(conf, restArgs) {
 		os.Exit(0)
 	} else {
 		os.Exit(1)

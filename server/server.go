@@ -41,7 +41,7 @@ func RegisterOperation(name string, operation ServerOperation) {
 type Server struct {
 	shutdownChan   chan struct{}          // Used to communicate shutdown requests
 	conf           *config.Opts           // Configuration parameters for this instance
-	backend        *backend.Backend       // The database backend
+	backend        backend.Backend        // The database backend
 	socketListener net.Listener           // Listener on the client request socket
 	CurrentTask    msg.Task               // The currently active task, if any
 	listeners      []NotificationListener // Listeners for task change notifications
@@ -65,7 +65,7 @@ func Run(conf *config.Opts) error {
 
 // Check whether the server is running.
 func IsRunning(conf *config.Opts) (bool, error) {
-	_, err := os.Stat(conf.ServerSocket())
+	_, err := os.Stat(conf.Socket)
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -100,17 +100,17 @@ func (s *Server) init() error {
 	s.shutdownChan = make(chan struct{})
 
 	// Create directories if necessary
-	if err := ensureDirExists(s.conf.ConfDir); err != nil {
+	if err := ensureDirExists(s.conf.ConfigDir()); err != nil {
 		return err
 	}
 
-	if err := ensureDirExists(s.conf.TempDir); err != nil {
+	if err := ensureDirExists(s.conf.SocketDir()); err != nil {
 		return err
 	}
 
 	// Establish database connection.
 	backend := backend.From(s.conf)
-	if err := backend.Init(); err != nil {
+	if err := backend.Init(s.conf); err != nil {
 		s.socketListener.Close()
 		backend.Close()
 		return err
@@ -119,7 +119,7 @@ func (s *Server) init() error {
 	}
 
 	// Open request socket.
-	if requestListener, err := net.Listen("unix", s.conf.ServerSocket()); err != nil {
+	if requestListener, err := net.Listen(s.conf.Protocol, s.conf.Socket); err != nil {
 		return err
 	} else {
 		s.socketListener = requestListener
