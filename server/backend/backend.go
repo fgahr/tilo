@@ -3,7 +3,7 @@
 // Each record has two timestamps, "started" and "ended". They are saved as
 // Unix time stamps because some arithmetic is performed on them which is
 // cumbersome when storing timestamps as strings.
-package db
+package backend
 
 import (
 	"database/sql"
@@ -21,7 +21,7 @@ type Backend struct {
 }
 
 // Create a new backend based on conf.
-func NewBackend(conf *config.Opts) *Backend {
+func From(conf *config.Opts) *Backend {
 	backend := new(Backend)
 	backend.conf = conf
 	return backend

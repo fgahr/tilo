@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
-	"github.com/fgahr/tilo/server/db"
+	"github.com/fgahr/tilo/server/backend"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"io"
@@ -41,7 +41,7 @@ func RegisterOperation(name string, operation ServerOperation) {
 type Server struct {
 	shutdownChan   chan struct{}          // Used to communicate shutdown requests
 	conf           *config.Opts           // Configuration parameters for this instance
-	backend        *db.Backend            // The database backend
+	backend        *backend.Backend       // The database backend
 	socketListener net.Listener           // Listener on the client request socket
 	CurrentTask    msg.Task               // The currently active task, if any
 	listeners      []NotificationListener // Listeners for task change notifications
@@ -109,7 +109,7 @@ func (s *Server) init() error {
 	}
 
 	// Establish database connection.
-	backend := db.NewBackend(s.conf)
+	backend := backend.From(s.conf)
 	if err := backend.Init(); err != nil {
 		s.socketListener.Close()
 		backend.Close()
@@ -253,8 +253,9 @@ func (s *Server) shutdown() {
 		s.logInfo("OK")
 	}
 
+	// FIXME: Directory should probably not be removed unless in /tmp
 	s.logInfo("Removing temporary directory..")
-	err = os.RemoveAll(s.conf.TempDir)
+	err = os.RemoveAll(s.conf.SocketDir())
 	if err != nil {
 		s.logError(err)
 	} else {
@@ -268,13 +269,15 @@ func (s *Server) shutdown() {
 func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
-	err := ensureDirExists(conf.ConfDir)
-	if err != nil {
+	confDir := conf.ConfFile
+	if err := ensureDirExists(confDir); err != nil {
 		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
-		Dir:   conf.ConfDir,
-		Env:   append(os.Environ(), conf.AsEnvironVars()...),
+		Dir: confDir,
+		// FIXME: Some tilo-specific options could appear twice, even with conflicting values
+		Env: append(os.Environ(), conf.AsEnvKeyValue()...),
+		// stdin, stdout, stderr
 		Files: []*os.File{nil, nil, nil},
 		Sys:   &sysProcAttr,
 	}
