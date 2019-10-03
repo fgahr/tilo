@@ -125,6 +125,8 @@ func GetConfig(args []string) (*Opts, []string) {
 		apply(bc.AcceptedItems(), fromArgs, nameInArgs)
 	}
 
+	warnUnused(fromFile, fromEnv, fromArgs)
+
 	return conf, unused
 }
 
@@ -135,6 +137,20 @@ func apply(items []*Item, kvPairs map[string]taggedString, namer func(*Item) str
 			tagged.inUse = true
 		}
 	}
+}
+
+func warnUnused(confs ...rawConf) {
+	for _, conf := range confs {
+		for k, v := range conf {
+			if !v.inUse {
+				warn("Unused parameter:", k, "with value:", v.value)
+			}
+		}
+	}
+}
+
+func warn(message ...interface{}) {
+	fmt.Fprintln(os.Stderr, message...)
 }
 
 // Create a set of default parameters.
@@ -252,6 +268,8 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 				value = params[i]
 			}
 			result[key] = taggedString{false, value}
+		} else {
+			unused = append(unused, param)
 		}
 	}
 	return result, unused
