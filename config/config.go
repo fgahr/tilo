@@ -130,7 +130,7 @@ func GetConfig(args []string) (*Opts, []string) {
 	return conf, unused
 }
 
-func apply(items []*Item, kvPairs map[string]taggedString, namer func(*Item) string) {
+func apply(items []*Item, kvPairs rawConf, namer func(*Item) string) {
 	for _, item := range items {
 		if tagged := kvPairs[namer(item)]; tagged.value != "" {
 			item.Value = tagged.value
@@ -255,18 +255,21 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 	for i := 0; i < len(params); i++ {
 		param := params[i]
 		if strings.HasPrefix(param, CLI_VAR_PREFIX) {
-			var key, value string
+			var rawKey, value string
 			if strings.Contains(param, "=") {
 				pair := strings.Split(param, "=")
-				key, value = pair[0], pair[1]
+				rawKey, value = pair[0], pair[1]
 			} else {
-				key = param
-				if i+1 == len(params) || strings.HasPrefix(params[i+1], CLI_VAR_PREFIX) {
-					// TODO: Handle error
+				rawKey = param
+				if i+1 == len(params) {
+					// TODO: Error no value
+				} else if strings.HasPrefix(params[i+1], CLI_VAR_PREFIX) {
+					// TODO: Error not a value
 				}
 				i++
 				value = params[i]
 			}
+			key := strings.Replace(rawKey, CLI_VAR_PREFIX, "", 1)
 			result[key] = taggedString{false, value}
 		} else {
 			unused = append(unused, param)
@@ -285,7 +288,8 @@ func FromEnvironment() rawConf {
 			if keyAndValue[1] == "" {
 				continue
 			}
-			result[keyAndValue[0]] = taggedString{false, keyAndValue[1]}
+			key := strings.Replace(keyAndValue[0], ENV_VAR_PREFIX, "", 1)
+			result[key] = taggedString{false, keyAndValue[1]}
 		}
 	}
 	return result
