@@ -12,6 +12,8 @@ import (
 	"github.com/fgahr/tilo/server/backend"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -20,25 +22,53 @@ const (
 )
 
 func init() {
-	s := SQLite{}
+	s := SQLite{conf: defaultConf()}
 	backend.RegisterBackend(&s)
 }
 
+type sqliteConf struct {
+	dbFile config.Item
+}
+
+func defaultConf() sqliteConf {
+	// TODO: Log warning on error?
+	home, _ := os.UserHomeDir()
+	fileDefault := filepath.Join(home, ".config", "tilo", "tilo.db")
+	dbFile := config.Item{
+		InFile: "db_file",
+		InArgs: "db-file",
+		InEnv:  "DB_FILE",
+		Value:  fileDefault,
+	}
+	return sqliteConf{dbFile: dbFile}
+}
+
+func (c *sqliteConf) BackendName() string {
+	return backendName
+}
+
+func (c *sqliteConf) AcceptedItems() []*config.Item {
+	return []*config.Item{&c.dbFile}
+}
+
 type SQLite struct {
-	conf *config.Opts
+	conf sqliteConf
 	db   *sql.DB
+}
+
+func (s *SQLite) Config() config.BackendConfig {
+	return &s.conf
 }
 
 func (s *SQLite) Name() string {
 	return backendName
 }
 
-func (s *SQLite) Init(conf *config.Opts) error {
-	s.conf = conf
+func (s *SQLite) Init() error {
 	if s == nil {
 		return errors.New("No backend present")
 	}
-	db, err := sql.Open("sqlite3", s.conf.DBFile)
+	db, err := sql.Open("sqlite3", s.conf.dbFile.Value)
 	if err != nil {
 		return errors.Wrap(err, "Unable to establish database connection")
 	}
@@ -202,24 +232,4 @@ GROUP BY name;`,
 	}
 
 	return result, rows.Err()
-}
-
-type configParser struct{}
-
-func (p *configParser) BackendName() string {
-	return backendName
-}
-
-func (p *configParser) ApplyValues(knv []config.KeyAndValue) []config.KeyAndValue {
-	// TODO
-	return knv
-}
-
-func (p *configParser) EmitConfig() config.BackendConf {
-	// TODO
-	return config.BackendConf{}
-}
-
-func (s *SQLite) Parser() config.BackendConfigParser {
-	return &configParser{}
 }

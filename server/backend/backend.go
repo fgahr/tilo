@@ -10,13 +10,12 @@ import (
 // TODO: Figure out how to handle malfunctions in remote backends.
 type Backend interface {
 	Name() string
-	// Passing the config here may not be necessary as it can be stored in the parser instead.
-	Init(conf *config.Opts) error
+	Init() error
 	Close() error
 	Save(task msg.Task) error
 	// TODO: Split into several meaningful methods?
 	Query(taskName string, param msg.QueryParam) ([]msg.Summary, error)
-	Parser() config.BackendConfigParser
+	Config() config.BackendConfig
 }
 
 var backends = make(map[string]Backend)
@@ -26,7 +25,7 @@ func RegisterBackend(b Backend) {
 		panic("Double registration of backend with name " + b.Name())
 	}
 	backends[b.Name()] = b
-	config.RegisterBackendParser(b.Parser())
+	config.RegisterBackend(b.Config())
 }
 
 // Get the appropriate backend.

@@ -116,8 +116,8 @@ func (c *Client) EstablishConnection() {
 		return
 	}
 	c.EnsureServerIsRunning()
-	socket := c.conf.Socket
-	if conn, err := net.Dial("unix", socket); err != nil {
+	socket := c.conf.Socket.Value
+	if conn, err := net.Dial(c.conf.Protocol.Value, socket); err != nil {
 		c.err = errors.Wrap(err, "Failed to connect to socket "+socket)
 	} else {
 		c.conn = conn

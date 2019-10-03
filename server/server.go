@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 )
 
@@ -65,7 +66,7 @@ func Run(conf *config.Opts) error {
 
 // Check whether the server is running.
 func IsRunning(conf *config.Opts) (bool, error) {
-	_, err := os.Stat(conf.Socket)
+	_, err := os.Stat(conf.Socket.Value)
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -110,7 +111,7 @@ func (s *Server) init() error {
 
 	// Establish database connection.
 	backend := backend.From(s.conf)
-	if err := backend.Init(s.conf); err != nil {
+	if err := backend.Init(); err != nil {
 		s.socketListener.Close()
 		backend.Close()
 		return err
@@ -119,7 +120,7 @@ func (s *Server) init() error {
 	}
 
 	// Open request socket.
-	if requestListener, err := net.Listen(s.conf.Protocol, s.conf.Socket); err != nil {
+	if requestListener, err := net.Listen(s.conf.Protocol.Value, s.conf.Socket.Value); err != nil {
 		return err
 	} else {
 		s.socketListener = requestListener
@@ -269,7 +270,7 @@ func (s *Server) shutdown() {
 func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
-	confDir := conf.ConfFile
+	confDir := filepath.Dir(conf.ConfFile.Value)
 	if err := ensureDirExists(confDir); err != nil {
 		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
@@ -313,43 +314,43 @@ func (s *Server) logError(err error) {
 	if err == nil {
 		return
 	}
-	if s.conf.LogLevel >= config.LOG_OFF {
+	if s.conf.ShouldLogAny() {
 		log.Println(err)
 	}
 }
 
 func (s *Server) logWarn(msg ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_WARN {
+	if s.conf.ShouldLogWarnings() {
 		log.Println(msg...)
 	}
 }
 
 func (s *Server) logFmtWarn(format string, v ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_WARN {
+	if s.conf.ShouldLogWarnings() {
 		log.Printf(format, v...)
 	}
 }
 
 func (s *Server) logInfo(msg ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_INFO {
+	if s.conf.ShouldLogInfo() {
 		log.Println(msg...)
 	}
 }
 
 func (s *Server) logFmtInfo(format string, v ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_INFO {
+	if s.conf.ShouldLogInfo() {
 		log.Printf(format, v...)
 	}
 }
 
 func (s *Server) logDebug(msg ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_DEBUG {
+	if s.conf.ShouldLogDebug() {
 		log.Println(msg...)
 	}
 }
 
 func (s *Server) logFmtDebug(format string, v ...interface{}) {
-	if s.conf.LogLevel >= config.LOG_DEBUG {
+	if s.conf.ShouldLogDebug() {
 		log.Printf(format, v...)
 	}
 }

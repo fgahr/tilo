@@ -2,23 +2,38 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 const (
 	LOG_OFF = iota
-	LOG_TRACE
 	LOG_WARN
 	LOG_INFO
 	LOG_DEBUG
+	LOG_TRACE
 )
 
 const (
 	ENV_VAR_PREFIX = "__TILO_"
 	CLI_VAR_PREFIX = "--"
 )
+
+type taggedString struct {
+	inUse bool
+	value string
+}
+
+type Item struct {
+	InFile string
+	InArgs string
+	InEnv  string
+	Value  string
+}
 
 func GetConfig(args []string) (*Opts, []string) {
 	// TODO
@@ -27,19 +42,48 @@ func GetConfig(args []string) (*Opts, []string) {
 
 // Configuration parameters.
 type Opts struct {
-	ConfFile string `cli:"config-file" env:"CONFIG_FILE"`  // The location of the configuration file.
-	DBFile   string `cli:"db-file" env:"DB_FILE"`          // The name of the DB file.
-	Socket   string `cli:"socket" env:"SERVER_SOCKET"`     // The name of the request socket file.
-	Protocol string `cli:"protocol" env:"SOCKET_PROTOCOL"` // The protocol to use for server communication.
-	LogLevel int    `cli:"log-level" env:"LOG_LEVEL"`      // Determines the amount of additional log output.
+	// The location of the configuration file.
+	ConfFile Item
+	// The protocol to use for server communication.
+	Protocol Item
+	// The name of the request socket file.
+	Socket Item
+	// The server's backend
+	Backend Item
+	// Determines the amount of additional log output.
+	LogLevel Item
 }
 
 func (c *Opts) ConfigDir() string {
-	return filepath.Dir(c.ConfFile)
+	return filepath.Dir(c.ConfFile.Value)
 }
 
 func (c *Opts) SocketDir() string {
-	return filepath.Dir(c.Socket)
+	return filepath.Dir(c.Socket.Value)
+}
+
+func (c *Opts) ShouldLogAny() bool {
+	return c.logLevelNumeric() > LOG_OFF
+}
+
+func (c *Opts) ShouldLogWarnings() bool {
+	return c.logLevelNumeric() >= LOG_WARN
+}
+
+func (c *Opts) ShouldLogInfo() bool {
+	return c.logLevelNumeric() >= LOG_INFO
+}
+
+func (c *Opts) ShouldLogDebug() bool {
+	return c.logLevelNumeric() >= LOG_DEBUG
+}
+
+func (c *Opts) logLevelNumeric() int {
+	if c.LogLevel.Value == "" {
+		panic("Log level not defined")
+	}
+	level, _ := strconv.Atoi(c.LogLevel.Value)
+	return level
 }
 
 // Emit the configuration in a format suitable as environment variables.
@@ -62,17 +106,77 @@ func defaultConfig() *Opts {
 	// There's nothing we can do with an error here so we ignore it.
 	homeDir, _ := os.UserHomeDir()
 	confFile := filepath.Join(homeDir, ".config", "tilo", "config")
-	dbFile := filepath.Join(homeDir, ".config", "tilo", "tilo.db")
 	return &Opts{
-		ConfFile: confFile,
-		DBFile:   dbFile,
-		Socket:   socket,
-		Protocol: "unix",
-		LogLevel: LOG_INFO,
+		ConfFile: Item{InFile: "", InArgs: "conf-file", InEnv: "CONF_FILE", Value: confFile},
+		Socket:   Item{InFile: "socket", InArgs: "socket", InEnv: "SOCKET", Value: socket},
+		Protocol: Item{InFile: "protocol", InArgs: "protocol", InEnv: "PROTOCOL", Value: "unix"},
+		Backend:  Item{InFile: "backend", InArgs: "backend", InEnv: "BACKEND", Value: "sqlite3"},
+		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: strconv.Itoa(LOG_INFO)},
 	}
 }
 
-func (c *Opts) ApplyCommandLine(args []string) *Opts {
+type BackendConf struct {
 	// TODO
-	return c
+}
+
+type BackendConfig interface {
+	// The name of the corresponding backend.
+	BackendName() string
+	// The items accepted by this parser
+	AcceptedItems() []*Item
+}
+
+var backendParsers = make(map[string]BackendConfig)
+
+func RegisterBackend(bcp BackendConfig) {
+	if backendParsers[bcp.BackendName()] != nil {
+		panic("Double registration of backend with name " + bcp.BackendName())
+	}
+	backendParsers[bcp.BackendName()] = bcp
+}
+
+func FromFile(configFile string) map[string]taggedString {
+	result := make(map[string]taggedString)
+	// TODO: Print errors to user
+	data, _ := ioutil.ReadFile(configFile)
+	asString := string(data)
+	lines := strings.Split(asString, "\n")
+	for _, fullLine := range lines {
+		line := strings.Split(fullLine, "#")[0]
+		trimmed := strings.TrimSpace(line)
+		keyAndValue := strings.Split(trimmed, "=")
+		if len(keyAndValue) == 1 || len(keyAndValue) > 2 {
+			// TODO: Error? Warning?
+			continue
+		}
+		key := strings.TrimSpace(keyAndValue[0])
+		value := strings.TrimSpace(keyAndValue[1])
+		if key == "" || value == "" {
+			// TODO: Error? Warning?
+			continue
+		}
+		result[key] = taggedString{false, value}
+	}
+	return result
+}
+
+func FromCommandLineParams(params []string) map[string]taggedString {
+	// TODO
+	return nil
+}
+
+func FromEnvironment() map[string]taggedString {
+	result := make(map[string]taggedString)
+	env := os.Environ()
+	for _, keyValuePair := range env {
+		if strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
+			keyAndValue := strings.Split(keyValuePair, "=")
+			// No need to save empty values
+			if keyAndValue[1] == "" {
+				continue
+			}
+			result[keyAndValue[0]] = taggedString{false, keyAndValue[1]}
+		}
+	}
+	return result
 }
