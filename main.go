@@ -31,7 +31,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	conf, restArgs := config.GetConfig(args)
+	conf, restArgs := config.GetConfig(args, os.Environ())
 
 	if client.Dispatch(conf, restArgs) {
 		os.Exit(0)

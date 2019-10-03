@@ -48,7 +48,16 @@ type taggedString struct {
 	value string
 }
 
-type rawConf map[string]taggedString
+type rawConf struct {
+	values map[string]string
+	inUse  map[string]bool
+}
+
+func makeRawConf() rawConf {
+	values := make(map[string]string)
+	inUse := make(map[string]bool)
+	return rawConf{values: values, inUse: inUse}
+}
 
 // TODO: Add Description field for help messages?
 type Item struct {
@@ -100,10 +109,10 @@ func RegisterBackend(bcp BackendConfig) {
 	backendConfigs[bcp.BackendName()] = bcp
 }
 
-func GetConfig(args []string) (*Opts, []string) {
+func GetConfig(args []string, env []string) (*Opts, []string) {
 	conf := defaultConfig()
 
-	fromEnv := FromEnvironment()
+	fromEnv := FromEnvironment(env)
 	fromArgs, unused := FromCommandLineParams(args)
 
 	// Determine whether we are dealing with an alternative config file location
@@ -130,20 +139,21 @@ func GetConfig(args []string) (*Opts, []string) {
 	return conf, unused
 }
 
-func apply(items []*Item, kvPairs rawConf, namer func(*Item) string) {
+func apply(items []*Item, conf rawConf, namer func(*Item) string) {
 	for _, item := range items {
-		if tagged := kvPairs[namer(item)]; tagged.value != "" {
-			item.Value = tagged.value
-			tagged.inUse = true
+		key := namer(item)
+		if value := conf.values[key]; value != "" {
+			item.Value = value
+			conf.inUse[key] = true
 		}
 	}
 }
 
 func warnUnused(confs ...rawConf) {
 	for _, conf := range confs {
-		for k, v := range conf {
-			if !v.inUse {
-				warn("Unused parameter:", k, "with value:", v.value)
+		for key, value := range conf.values {
+			if !conf.inUse[key] {
+				warn("Unused parameter:", key, "with value:", value)
 			}
 		}
 	}
@@ -225,7 +235,7 @@ func (c *Opts) AsEnvKeyValue() []string {
 }
 
 func FromFile(configFile string) rawConf {
-	result := make(map[string]taggedString)
+	result := makeRawConf()
 	// TODO: Print errors to user
 	data, _ := ioutil.ReadFile(configFile)
 	asString := string(data)
@@ -244,13 +254,14 @@ func FromFile(configFile string) rawConf {
 			// TODO: Error? Warning?
 			continue
 		}
-		result[key] = taggedString{false, value}
+		result.values[key] = value
+		result.inUse[key] = false
 	}
 	return result
 }
 
 func FromCommandLineParams(params []string) (rawConf, []string) {
-	result := make(map[string]taggedString)
+	result := makeRawConf()
 	var unused []string
 	for i := 0; i < len(params); i++ {
 		param := params[i]
@@ -270,7 +281,8 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 				value = params[i]
 			}
 			key := strings.Replace(rawKey, CLI_VAR_PREFIX, "", 1)
-			result[key] = taggedString{false, value}
+			result.values[key] = value
+			result.inUse[key] = false
 		} else {
 			unused = append(unused, param)
 		}
@@ -278,9 +290,8 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 	return result, unused
 }
 
-func FromEnvironment() rawConf {
-	result := make(map[string]taggedString)
-	env := os.Environ()
+func FromEnvironment(env []string) rawConf {
+	result := makeRawConf()
 	for _, keyValuePair := range env {
 		if strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
 			keyAndValue := strings.Split(keyValuePair, "=")
@@ -289,7 +300,8 @@ func FromEnvironment() rawConf {
 				continue
 			}
 			key := strings.Replace(keyAndValue[0], ENV_VAR_PREFIX, "", 1)
-			result[key] = taggedString{false, keyAndValue[1]}
+			result.values[key] = keyAndValue[1]
+			result.inUse[key] = false
 		}
 	}
 	return result

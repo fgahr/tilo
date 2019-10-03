@@ -4,35 +4,45 @@ import (
 	"testing"
 )
 
-func init() {
-	RegisterBackend(newTestBackendConfig())
-}
-
 type testBackendConfig struct {
-	foo Item
-	bar Item
+	name string
+	foo  Item
+	bar  Item
 }
 
-func newTestBackendConfig() *testBackendConfig {
+func newTestBackendConfig(name string) *testBackendConfig {
 	foo := Item{InFile: "foo", InEnv: "FOO", InArgs: "foo", Value: "foo"}
 	bar := Item{InFile: "bar", InEnv: "BAR", InArgs: "bar", Value: "bar"}
-	return &testBackendConfig{foo: foo, bar: bar}
+	return &testBackendConfig{name: name, foo: foo, bar: bar}
 }
 
 func (c *testBackendConfig) BackendName() string {
-	return "test"
+	return c.name
 }
 
 func (c *testBackendConfig) AcceptedItems() []*Item {
 	return nil
 }
 
-func TestBackendSetCorrectly(t *testing.T) {
-	args := []string{"--backend=test"}
+func TestBackendSetCorrectlyArgs(t *testing.T) {
+	RegisterBackend(newTestBackendConfig("test1"))
+
+	args := []string{"--backend=test1"}
 	defer func() {
 		if r := recover(); r != nil {
-			t.Error("Failed to recognize 'test' backend:", r)
+			t.Error("Failed to recognize 'test1' backend:", r)
 		}
 	}()
-	GetConfig(args)
+	GetConfig(args, nil)
+}
+
+func TestBackendSetCorrectlyEnv(t *testing.T) {
+	RegisterBackend(newTestBackendConfig("test2"))
+	env := []string{ENV_VAR_PREFIX + "BACKEND=test2"}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Error("Failed to recognize 'test1' backend:", r)
+		}
+	}()
+	GetConfig(nil, env)
 }
