@@ -1,3 +1,7 @@
+// Package config handles everything related to runtime-configuration.
+//
+// Three configuration sources are supported. In order of ascending priority:
+// configuration file, environment variables, command line arguments.
 package config
 
 import (
@@ -28,6 +32,8 @@ type taggedString struct {
 	value string
 }
 
+type rawConf map[string]taggedString
+
 type Item struct {
 	InFile string
 	InArgs string
@@ -35,9 +41,16 @@ type Item struct {
 	Value  string
 }
 
-func GetConfig(args []string) (*Opts, []string) {
-	// TODO
-	return defaultConfig(), args
+func nameInFile(item *Item) string {
+	return item.InFile
+}
+
+func nameInArgs(item *Item) string {
+	return item.InArgs
+}
+
+func nameInEnv(item *Item) string {
+	return item.InEnv
 }
 
 // Configuration parameters.
@@ -52,6 +65,85 @@ type Opts struct {
 	Backend Item
 	// Determines the amount of additional log output.
 	LogLevel Item
+}
+
+type BackendConfig interface {
+	// The name of the corresponding backend.
+	BackendName() string
+	// The items accepted by this parser
+	AcceptedItems() []*Item
+}
+
+var backendConfigs = make(map[string]BackendConfig)
+
+func RegisterBackend(bcp BackendConfig) {
+	if backendConfigs[bcp.BackendName()] != nil {
+		panic("Double registration of backend with name " + bcp.BackendName())
+	}
+	backendConfigs[bcp.BackendName()] = bcp
+}
+
+func GetConfig(args []string) (*Opts, []string) {
+	conf := defaultConfig()
+
+	fromEnv := FromEnvironment()
+	fromArgs, unused := FromCommandLineParams(args)
+
+	// Determine whether we are dealing with an alternative config file location
+	apply([]*Item{&conf.ConfFile}, fromEnv, nameInEnv)
+	apply([]*Item{&conf.ConfFile}, fromArgs, nameInArgs)
+	fromFile := FromFile(conf.ConfFile.Value)
+
+	// Build up the base configuration.
+	apply(conf.AcceptedItems(), fromFile, nameInFile)
+	apply(conf.AcceptedItems(), fromEnv, nameInEnv)
+	apply(conf.AcceptedItems(), fromArgs, nameInArgs)
+
+	// Build up the backend configuration.
+	if bc := backendConfigs[conf.Backend.Value]; bc == nil {
+		panic("Unknown backend: " + conf.Backend.Value)
+	} else {
+		apply(bc.AcceptedItems(), fromFile, nameInFile)
+		apply(bc.AcceptedItems(), fromEnv, nameInEnv)
+		apply(bc.AcceptedItems(), fromArgs, nameInArgs)
+	}
+
+	return conf, unused
+}
+
+func apply(items []*Item, kvPairs map[string]taggedString, namer func(*Item) string) {
+	for _, item := range items {
+		if tagged := kvPairs[namer(item)]; tagged.value != "" {
+			item.Value = tagged.value
+			tagged.inUse = true
+		}
+	}
+}
+
+// Create a set of default parameters.
+func defaultConfig() *Opts {
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", "tilo", os.Getuid()), "server")
+	// There's nothing we can do with an error here so we ignore it.
+	homeDir, _ := os.UserHomeDir()
+	confFile := filepath.Join(homeDir, ".config", "tilo", "config")
+	return &Opts{
+		ConfFile: Item{InFile: "", InArgs: "conf-file", InEnv: "CONF_FILE", Value: confFile},
+		Socket:   Item{InFile: "socket", InArgs: "socket", InEnv: "SOCKET", Value: socket},
+		Protocol: Item{InFile: "protocol", InArgs: "protocol", InEnv: "PROTOCOL", Value: "unix"},
+		Backend:  Item{InFile: "backend", InArgs: "backend", InEnv: "BACKEND", Value: "sqlite3"},
+		// TODO: Use proper string keys for log levels instead of stringified numbers
+		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: strconv.Itoa(LOG_INFO)},
+	}
+}
+
+func (c *Opts) AcceptedItems() []*Item {
+	return []*Item{
+		&c.ConfFile,
+		&c.Socket,
+		&c.Protocol,
+		&c.Backend,
+		&c.LogLevel,
+	}
 }
 
 func (c *Opts) ConfigDir() string {
@@ -100,42 +192,7 @@ func (c *Opts) AsEnvKeyValue() []string {
 	return result
 }
 
-// Create a set of default parameters.
-func defaultConfig() *Opts {
-	socket := filepath.Join(os.TempDir(), fmt.Sprintf("%s%d", "tilo", os.Getuid()), "server")
-	// There's nothing we can do with an error here so we ignore it.
-	homeDir, _ := os.UserHomeDir()
-	confFile := filepath.Join(homeDir, ".config", "tilo", "config")
-	return &Opts{
-		ConfFile: Item{InFile: "", InArgs: "conf-file", InEnv: "CONF_FILE", Value: confFile},
-		Socket:   Item{InFile: "socket", InArgs: "socket", InEnv: "SOCKET", Value: socket},
-		Protocol: Item{InFile: "protocol", InArgs: "protocol", InEnv: "PROTOCOL", Value: "unix"},
-		Backend:  Item{InFile: "backend", InArgs: "backend", InEnv: "BACKEND", Value: "sqlite3"},
-		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: strconv.Itoa(LOG_INFO)},
-	}
-}
-
-type BackendConf struct {
-	// TODO
-}
-
-type BackendConfig interface {
-	// The name of the corresponding backend.
-	BackendName() string
-	// The items accepted by this parser
-	AcceptedItems() []*Item
-}
-
-var backendParsers = make(map[string]BackendConfig)
-
-func RegisterBackend(bcp BackendConfig) {
-	if backendParsers[bcp.BackendName()] != nil {
-		panic("Double registration of backend with name " + bcp.BackendName())
-	}
-	backendParsers[bcp.BackendName()] = bcp
-}
-
-func FromFile(configFile string) map[string]taggedString {
+func FromFile(configFile string) rawConf {
 	result := make(map[string]taggedString)
 	// TODO: Print errors to user
 	data, _ := ioutil.ReadFile(configFile)
@@ -160,12 +217,31 @@ func FromFile(configFile string) map[string]taggedString {
 	return result
 }
 
-func FromCommandLineParams(params []string) map[string]taggedString {
-	// TODO
-	return nil
+func FromCommandLineParams(params []string) (rawConf, []string) {
+	result := make(map[string]taggedString)
+	var unused []string
+	for i := 0; i < len(params); i++ {
+		param := params[i]
+		if strings.HasPrefix(param, CLI_VAR_PREFIX) {
+			var key, value string
+			if strings.Contains(param, "=") {
+				pair := strings.Split(param, "=")
+				key, value = pair[0], pair[1]
+			} else {
+				key = param
+				if i+1 == len(params) || strings.HasPrefix(params[i+1], CLI_VAR_PREFIX) {
+					// TODO: Handle error
+				}
+				i++
+				value = params[i]
+			}
+			result[key] = taggedString{false, value}
+		}
+	}
+	return result, unused
 }
 
-func FromEnvironment() map[string]taggedString {
+func FromEnvironment() rawConf {
 	result := make(map[string]taggedString)
 	env := os.Environ()
 	for _, keyValuePair := range env {
