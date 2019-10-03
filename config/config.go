@@ -10,17 +10,33 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 )
 
 const (
-	LOG_OFF = iota
-	LOG_WARN
-	LOG_INFO
-	LOG_DEBUG
-	LOG_TRACE
+	LOG_OFF   = "off"
+	LOG_WARN  = "warn"
+	LOG_INFO  = "info"
+	LOG_DEBUG = "debug"
+	LOG_TRACE = "trace"
 )
+
+func logLevel(description string) int {
+	switch description {
+	case LOG_OFF:
+		return 0
+	case LOG_WARN:
+		return 1
+	case LOG_INFO:
+		return 2
+	case LOG_DEBUG:
+		return 3
+	case LOG_TRACE:
+		return 4
+	default:
+		return 1
+	}
+}
 
 const (
 	ENV_VAR_PREFIX = "__TILO_"
@@ -34,6 +50,7 @@ type taggedString struct {
 
 type rawConf map[string]taggedString
 
+// TODO: Add Description field for help messages?
 type Item struct {
 	InFile string
 	InArgs string
@@ -131,8 +148,7 @@ func defaultConfig() *Opts {
 		Socket:   Item{InFile: "socket", InArgs: "socket", InEnv: "SOCKET", Value: socket},
 		Protocol: Item{InFile: "protocol", InArgs: "protocol", InEnv: "PROTOCOL", Value: "unix"},
 		Backend:  Item{InFile: "backend", InArgs: "backend", InEnv: "BACKEND", Value: "sqlite3"},
-		// TODO: Use proper string keys for log levels instead of stringified numbers
-		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: strconv.Itoa(LOG_INFO)},
+		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: LOG_INFO},
 	}
 }
 
@@ -155,27 +171,27 @@ func (c *Opts) SocketDir() string {
 }
 
 func (c *Opts) ShouldLogAny() bool {
-	return c.logLevelNumeric() > LOG_OFF
+	return c.logLevel() > logLevel(LOG_OFF)
 }
 
 func (c *Opts) ShouldLogWarnings() bool {
-	return c.logLevelNumeric() >= LOG_WARN
+	return c.logLevel() >= logLevel(LOG_WARN)
 }
 
 func (c *Opts) ShouldLogInfo() bool {
-	return c.logLevelNumeric() >= LOG_INFO
+	return c.logLevel() >= logLevel(LOG_INFO)
 }
 
 func (c *Opts) ShouldLogDebug() bool {
-	return c.logLevelNumeric() >= LOG_DEBUG
+	return c.logLevel() >= logLevel(LOG_DEBUG)
 }
 
-func (c *Opts) logLevelNumeric() int {
-	if c.LogLevel.Value == "" {
-		panic("Log level not defined")
-	}
-	level, _ := strconv.Atoi(c.LogLevel.Value)
-	return level
+func (c *Opts) ShouldLogTrace() bool {
+	return c.logLevel() >= logLevel(LOG_TRACE)
+}
+
+func (c *Opts) logLevel() int {
+	return logLevel(c.LogLevel.Value)
 }
 
 // Emit the configuration in a format suitable as environment variables.
