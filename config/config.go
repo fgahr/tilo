@@ -6,6 +6,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -109,16 +110,22 @@ func RegisterBackend(bcp BackendConfig) {
 	backendConfigs[bcp.BackendName()] = bcp
 }
 
-func GetConfig(args []string, env []string) (*Opts, []string) {
+func GetConfig(args []string, env []string) (*Opts, []string, error) {
 	conf := defaultConfig()
 
 	fromEnv := FromEnvironment(env)
-	fromArgs, unused := FromCommandLineParams(args)
+	fromArgs, unused, err := FromCommandLineParams(args)
+	if err != nil {
+		return nil, args, errors.Wrap(err, "Failed to establish configuration")
+	}
 
 	// Determine whether we are dealing with an alternative config file location
 	apply([]*Item{&conf.ConfFile}, fromEnv, nameInEnv)
 	apply([]*Item{&conf.ConfFile}, fromArgs, nameInArgs)
-	fromFile := FromFile(conf.ConfFile.Value)
+	fromFile, err := FromFile(conf.ConfFile.Value)
+	if err != nil {
+		return nil, args, errors.Wrap(err, "Failed to establish configuration")
+	}
 
 	// Build up the base configuration.
 	apply(conf.AcceptedItems(), fromFile, nameInFile)
@@ -136,7 +143,7 @@ func GetConfig(args []string, env []string) (*Opts, []string) {
 
 	warnUnused(fromFile, fromEnv, fromArgs)
 
-	return conf, unused
+	return conf, unused, nil
 }
 
 func apply(items []*Item, conf rawConf, namer func(*Item) string) {
@@ -234,33 +241,33 @@ func (c *Opts) AsEnvKeyValue() []string {
 	return result
 }
 
-func FromFile(configFile string) rawConf {
+func FromFile(configFile string) (rawConf, error) {
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		return rawConf{}, nil
+	}
 	result := makeRawConf()
-	// TODO: Print errors to user
 	data, _ := ioutil.ReadFile(configFile)
 	asString := string(data)
 	lines := strings.Split(asString, "\n")
-	for _, fullLine := range lines {
+	for lnum, fullLine := range lines {
 		line := strings.Split(fullLine, "#")[0]
 		trimmed := strings.TrimSpace(line)
 		keyAndValue := strings.Split(trimmed, "=")
 		if len(keyAndValue) == 1 || len(keyAndValue) > 2 {
-			// TODO: Error? Warning?
-			continue
+			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)
 		}
 		key := strings.TrimSpace(keyAndValue[0])
 		value := strings.TrimSpace(keyAndValue[1])
 		if key == "" || value == "" {
-			// TODO: Error? Warning?
-			continue
+			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)
 		}
 		result.values[key] = value
 		result.inUse[key] = false
 	}
-	return result
+	return result, nil
 }
 
-func FromCommandLineParams(params []string) (rawConf, []string) {
+func FromCommandLineParams(params []string) (rawConf, []string, error) {
 	result := makeRawConf()
 	var unused []string
 	for i := 0; i < len(params); i++ {
@@ -270,12 +277,15 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 			if strings.Contains(param, "=") {
 				pair := strings.Split(param, "=")
 				rawKey, value = pair[0], pair[1]
+				if value == "" {
+					return result, params, errors.New("No value for parameter: " + param)
+				}
 			} else {
 				rawKey = param
 				if i+1 == len(params) {
-					// TODO: Error no value
+					return result, params, errors.New("No value for parameter: " + param)
 				} else if strings.HasPrefix(params[i+1], CLI_VAR_PREFIX) {
-					// TODO: Error not a value
+					return result, params, errors.New("Not a valid value for parameter " + param + ": " + params[i+1])
 				}
 				i++
 				value = params[i]
@@ -287,7 +297,7 @@ func FromCommandLineParams(params []string) (rawConf, []string) {
 			unused = append(unused, param)
 		}
 	}
-	return result, unused
+	return result, unused, nil
 }
 
 func FromEnvironment(env []string) rawConf {

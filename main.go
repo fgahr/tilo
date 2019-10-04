@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	_ "github.com/fgahr/tilo/command/abort"
@@ -31,7 +32,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	conf, restArgs := config.GetConfig(args, os.Environ())
+	conf, restArgs, err := config.GetConfig(args, os.Environ())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
 
 	if client.Dispatch(conf, restArgs) {
 		os.Exit(0)

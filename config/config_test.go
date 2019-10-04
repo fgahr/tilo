@@ -66,7 +66,10 @@ func TestBackendParametersFromArgs(t *testing.T) {
 	newBar := "new-bar"
 	args := []string{CLI_VAR_PREFIX + "backend=" + backendName, CLI_VAR_PREFIX + "foo", newFoo}
 	env := []string{ENV_VAR_PREFIX + "BAR=" + newBar}
-	GetConfig(args, env)
+	_, _, err := GetConfig(args, env)
+	if err != nil {
+		t.Error(err)
+	}
 	if backendConf.foo.Value != newFoo {
 		t.Errorf("foo not set to '%s', instead: %s", newFoo, backendConf.foo.Value)
 	}
