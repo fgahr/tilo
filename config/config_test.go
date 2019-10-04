@@ -25,11 +25,11 @@ func (c *testBackendConfig) BackendName() string {
 }
 
 func (c *testBackendConfig) AcceptedItems() []*Item {
-	return nil
+	return []*Item{&c.foo, &c.bar}
 }
 
 func TestBackendSetFromArgs(t *testing.T) {
-	backend := "test1"
+	backend := "backendFromArgs"
 	RegisterBackend(newTestBackendConfig(backend))
 	defer unsetBackendConfig(backend)
 
@@ -43,7 +43,7 @@ func TestBackendSetFromArgs(t *testing.T) {
 }
 
 func TestBackendSetFromEnv(t *testing.T) {
-	backend := "test2"
+	backend := "backendFromEnv"
 	RegisterBackend(newTestBackendConfig(backend))
 	defer unsetBackendConfig(backend)
 
@@ -54,4 +54,23 @@ func TestBackendSetFromEnv(t *testing.T) {
 		}
 	}()
 	GetConfig(nil, env)
+}
+
+func TestBackendParametersFromArgs(t *testing.T) {
+	backendName := "backendParametersFromArgs"
+	backendConf := newTestBackendConfig(backendName)
+	RegisterBackend(backendConf)
+	defer unsetBackendConfig(backendName)
+
+	newFoo := "new-foo"
+	newBar := "new-bar"
+	args := []string{CLI_VAR_PREFIX + "backend=" + backendName, CLI_VAR_PREFIX + "foo", newFoo}
+	env := []string{ENV_VAR_PREFIX + "BAR=" + newBar}
+	GetConfig(args, env)
+	if backendConf.foo.Value != newFoo {
+		t.Errorf("foo not set to '%s', instead: %s", newFoo, backendConf.foo.Value)
+	}
+	if backendConf.bar.Value != newBar {
+		t.Errorf("foo not set to '%s', instead: %s", newBar, backendConf.bar.Value)
+	}
 }
