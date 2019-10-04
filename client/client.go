@@ -45,11 +45,11 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
 		// TODO: Wrap with operation's usage etc.
-		fmt.Fprintln(os.Stderr, err)
+		cl.PrintMessage(err.Error())
 		op.PrintUsage(os.Stderr)
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		cl.PrintMessage(err.Error())
 		return false
 	} else {
 		return true
@@ -57,9 +57,10 @@ func Dispatch(conf *config.Opts, args []string) bool {
 }
 
 type Client struct {
-	conf *config.Opts
-	conn net.Conn
-	err  error
+	conf   *config.Opts
+	conn   net.Conn
+	msgout io.Writer
+	err    error
 }
 
 // Read from the client's connection.
@@ -74,7 +75,7 @@ func (cl *Client) Read(p []byte) (n int, err error) {
 }
 
 func newClient(conf *config.Opts) *Client {
-	return &Client{conf: conf}
+	return &Client{conf: conf, msgout: os.Stderr}
 }
 
 func (c *Client) Failed() bool {
@@ -109,13 +110,14 @@ func (c *Client) SendReceivePrint(cmd msg.Cmd) {
 }
 
 // Establish a connection to the server.
+// Will start the server if it isn't running yet.
 func (c *Client) EstablishConnection() {
 	if c.Failed() {
 		return
 	}
 	c.EnsureServerIsRunning()
-	socket := c.conf.ServerSocket()
-	if conn, err := net.Dial("unix", socket); err != nil {
+	socket := c.conf.Socket.Value
+	if conn, err := net.Dial(c.conf.Protocol.Value, socket); err != nil {
 		c.err = errors.Wrap(err, "Failed to connect to socket "+socket)
 	} else {
 		c.conn = conn
@@ -228,5 +230,10 @@ func (c *Client) RunServer() {
 
 // Print a message for the user.
 func (c *Client) PrintMessage(message string) {
-	fmt.Fprintln(os.Stderr, message)
+	fmt.Fprintln(c.msgout, message)
+}
+
+// Print an error message for the user.
+func (c *Client) PrintError(err error) {
+	fmt.Fprintln(c.msgout, err.Error())
 }

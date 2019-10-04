@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
-	"github.com/fgahr/tilo/server/db"
+	"github.com/fgahr/tilo/server/backend"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
 	"io"
@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 )
 
@@ -41,23 +42,16 @@ func RegisterOperation(name string, operation ServerOperation) {
 type Server struct {
 	shutdownChan   chan struct{}          // Used to communicate shutdown requests
 	conf           *config.Opts           // Configuration parameters for this instance
-	backend        *db.Backend            // The database backend
+	backend        backend.Backend        // The database backend
 	socketListener net.Listener           // Listener on the client request socket
 	CurrentTask    msg.Task               // The currently active task, if any
 	listeners      []NotificationListener // Listeners for task change notifications
 }
 
-// Create and configure a new server.
-func newServer(conf *config.Opts) *Server {
-	s := new(Server)
-	s.conf = conf
-	return s
-}
-
 // Start server operation.
 // This function will block until server shutdown.
 func Run(conf *config.Opts) error {
-	s := newServer(conf)
+	s := Server{conf: conf}
 	if err := s.init(); err != nil {
 		return errors.Wrap(err, "Failed to initialize server")
 	}
@@ -72,7 +66,7 @@ func Run(conf *config.Opts) error {
 
 // Check whether the server is running.
 func IsRunning(conf *config.Opts) (bool, error) {
-	_, err := os.Stat(conf.ServerSocket())
+	_, err := os.Stat(conf.Socket.Value)
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {
@@ -107,16 +101,16 @@ func (s *Server) init() error {
 	s.shutdownChan = make(chan struct{})
 
 	// Create directories if necessary
-	if err := ensureDirExists(s.conf.ConfDir); err != nil {
+	if err := ensureDirExists(s.conf.ConfigDir()); err != nil {
 		return err
 	}
 
-	if err := ensureDirExists(s.conf.TempDir); err != nil {
+	if err := ensureDirExists(s.conf.SocketDir()); err != nil {
 		return err
 	}
 
 	// Establish database connection.
-	backend := db.NewBackend(s.conf)
+	backend := backend.From(s.conf)
 	if err := backend.Init(); err != nil {
 		s.socketListener.Close()
 		backend.Close()
@@ -126,7 +120,7 @@ func (s *Server) init() error {
 	}
 
 	// Open request socket.
-	if requestListener, err := net.Listen("unix", s.conf.ServerSocket()); err != nil {
+	if requestListener, err := net.Listen(s.conf.Protocol.Value, s.conf.Socket.Value); err != nil {
 		return err
 	} else {
 		s.socketListener = requestListener
@@ -140,7 +134,7 @@ func (s *Server) init() error {
 // Enforce cleanup when the server stops.
 func (s *Server) enforceCleanup() {
 	if r := recover(); r != nil {
-		log.Println("Shutting down.", r)
+		s.logWarn("Shutting down.", r)
 	}
 	s.shutdown()
 }
@@ -157,14 +151,14 @@ func (s *Server) main() {
 	// Enable connection processing.
 	go s.waitForConnection(s.socketListener, srvChan)
 
-	log.Println("Starting server main loop.")
+	s.logDebug("Starting server main loop.")
 MainLoop:
 	for {
 		select {
 		case conn := <-srvChan:
 			s.serveConnection(conn)
 		case sig := <-sigChan:
-			log.Println("Received signal: ", sig)
+			s.logDebug("Received signal: ", sig)
 			break MainLoop
 		case <-s.shutdownChan:
 			break MainLoop
@@ -180,7 +174,7 @@ func (s *Server) waitForConnection(lst net.Listener, srvChan chan<- net.Conn) {
 				// Ignore shutdown-related errors.
 				break
 			}
-			log.Println(errors.Wrap(err, "Error listening for connections"))
+			s.logError(errors.Wrap(err, "Error listening for connections"))
 		} else {
 			srvChan <- conn
 		}
@@ -192,10 +186,10 @@ func (s *Server) serveConnection(conn net.Conn) {
 	dec := json.NewDecoder(conn)
 	cmd := msg.Cmd{}
 	if err := dec.Decode(&cmd); err != nil {
-		log.Println(errors.Wrap(err, "Failed to decode command"))
+		s.logError(errors.Wrap(err, "Failed to decode command"))
 	}
 	if err := s.Dispatch(&Request{conn, cmd}); err != nil {
-		log.Println(errors.Wrap(err, "Unable to execute command"))
+		s.logError(errors.Wrap(err, "Unable to execute command"))
 	}
 }
 
@@ -213,14 +207,12 @@ func (s *Server) Dispatch(req *Request) error {
 // Send a notification to all registered listeners.
 func (s *Server) notifyListeners() {
 	ntf := TaskNotification(s.CurrentTask)
-	if s.conf.DebugLevel == config.DebugAll {
-		log.Println("Notifying listeners:", ntf)
-	}
+	s.logDebug("Notifying listeners:", ntf)
 	if len(s.listeners) > 0 {
 		remainingListeners := make([]NotificationListener, 0)
 		for _, lst := range s.listeners {
 			if err := lst.Notify(ntf); err != nil {
-				log.Println("Could not notify listener, disconnecting:", err)
+				s.logInfo("Could not notify listener, disconnecting:", err)
 				lst.disconnect()
 			} else {
 				remainingListeners = append(remainingListeners, lst)
@@ -230,56 +222,63 @@ func (s *Server) notifyListeners() {
 	}
 }
 
-// Initiate shutdown, closing open connections.
-func (s *Server) shutdown() {
-	var err error
-	log.Println("Shutting down server..")
-	// TODO: Handle return values, possibly include in response? Skip?
-	s.StopCurrentTask()
-
-	// TODO: Close listener connections
-	if len(s.listeners) > 0 {
-		log.Println("Disconnecting listeners")
-	}
+// Notify all connected listeners of shutdown and disconnect them.
+func (s *Server) disconnectAllListeners() {
 	ntf := shutdownNotification()
 	for _, lst := range s.listeners {
 		lst.Notify(ntf)
 		if err := lst.disconnect(); err != nil {
-			log.Println("Error closing listener connection:", err)
+			s.logWarn("Error closing listener connection:", err)
 		}
 	}
-
-	log.Print("Closing socket..")
-	err = s.socketListener.Close()
-	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println("OK")
-	}
-
-	log.Print("Removing temporary directory..")
-	err = os.RemoveAll(s.conf.TempDir)
-	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println("OK")
-	}
-
-	log.Println("Shutdown complete.")
 }
 
+// Initiate shutdown, closing open connections.
+func (s *Server) shutdown() {
+	var err error
+	s.logInfo("Shutting down server..")
+	// When the shutdown is initiated by a message, the task is stopped prior.
+	// If shutdown is in response to a signal, there is nothing else to do here.
+	s.StopCurrentTask()
+
+	if len(s.listeners) > 0 {
+		s.logInfo("Disconnecting listeners")
+		s.disconnectAllListeners()
+	}
+
+	s.logInfo("Closing socket..")
+	err = s.socketListener.Close()
+	if err != nil {
+		s.logError(err)
+	} else {
+		s.logInfo("OK")
+	}
+
+	// FIXME: Directory should probably not be removed unless in /tmp
+	s.logInfo("Removing temporary directory..")
+	err = os.RemoveAll(s.conf.SocketDir())
+	if err != nil {
+		s.logError(err)
+	} else {
+		s.logInfo("OK")
+	}
+
+	s.logInfo("Shutdown complete.")
+}
+
+// TODO: Move to client package?
 // Start a server in a background process.
 func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
 	// Prepare high-level process attributes
-	err := ensureDirExists(conf.ConfDir)
-	if err != nil {
+	confDir := filepath.Dir(conf.ConfFile.Value)
+	if err := ensureDirExists(confDir); err != nil {
 		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
-		Dir:   conf.ConfDir,
-		Env:   os.Environ(),
-		Files: []*os.File{nil, nil, nil},
+		Dir:   confDir,
+		Env:   conf.MergeIntoEnv(os.Environ()),
+		Files: []*os.File{nil, nil, nil}, // stdin, stdout, stderr
 		Sys:   &sysProcAttr,
 	}
 
@@ -288,6 +287,9 @@ func StartInBackground(conf *config.Opts) (int, error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "Unable to determine server executable")
 	}
+	// NOTE: Due to dependency resolution issues, there is no direct way to tie
+	// the arguments to the corresponding operation and its arguments. It could
+	// be done indirectly.
 	proc, err := os.StartProcess(executable, []string{executable, "server", "run"}, &procAttr)
 	if err != nil {
 		return 0, errors.Wrap(err, "Unable to start server process")
@@ -305,4 +307,49 @@ func writeJsonLine(obj interface{}, w io.Writer) error {
 	data = append(data, '\n')
 	_, err = w.Write(data)
 	return err
+}
+
+func (s *Server) logError(err error) {
+	if err == nil {
+		return
+	}
+	if s.conf.ShouldLogAny() {
+		log.Println(err)
+	}
+}
+
+func (s *Server) logWarn(msg ...interface{}) {
+	if s.conf.ShouldLogWarnings() {
+		log.Println(msg...)
+	}
+}
+
+func (s *Server) logFmtWarn(format string, v ...interface{}) {
+	if s.conf.ShouldLogWarnings() {
+		log.Printf(format, v...)
+	}
+}
+
+func (s *Server) logInfo(msg ...interface{}) {
+	if s.conf.ShouldLogInfo() {
+		log.Println(msg...)
+	}
+}
+
+func (s *Server) logFmtInfo(format string, v ...interface{}) {
+	if s.conf.ShouldLogInfo() {
+		log.Printf(format, v...)
+	}
+}
+
+func (s *Server) logDebug(msg ...interface{}) {
+	if s.conf.ShouldLogDebug() {
+		log.Println(msg...)
+	}
+}
+
+func (s *Server) logFmtDebug(format string, v ...interface{}) {
+	if s.conf.ShouldLogDebug() {
+		log.Printf(format, v...)
+	}
 }

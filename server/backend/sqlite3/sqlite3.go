@@ -1,44 +1,80 @@
-// Package db contains all relevant database queries.
+// SQLite3 backend for the tilo server.
 //
 // Each record has two timestamps, "started" and "ended". They are saved as
 // Unix time stamps because some arithmetic is performed on them which is
 // cumbersome when storing timestamps as strings.
-package db
+package sqlite3
 
 import (
 	"database/sql"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
+	"github.com/fgahr/tilo/server/backend"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
+	"os"
+	"path/filepath"
 	"time"
 )
 
-// Type representing a database backend. At this point, only Sqlite is supported.
-type Backend struct {
-	conf *config.Opts
+const (
+	backendName = "sqlite3"
+)
+
+func init() {
+	s := SQLite{conf: defaultConf()}
+	backend.RegisterBackend(&s)
+}
+
+type sqliteConf struct {
+	dbFile config.Item
+}
+
+func defaultConf() sqliteConf {
+	// TODO: Log warning on error?
+	home, _ := os.UserHomeDir()
+	fileDefault := filepath.Join(home, ".config", "tilo", "tilo.db")
+	dbFile := config.Item{
+		InFile: "db_file",
+		InArgs: "db-file",
+		InEnv:  "DB_FILE",
+		Value:  fileDefault,
+	}
+	return sqliteConf{dbFile: dbFile}
+}
+
+func (c *sqliteConf) BackendName() string {
+	return backendName
+}
+
+func (c *sqliteConf) AcceptedItems() []*config.Item {
+	return []*config.Item{&c.dbFile}
+}
+
+type SQLite struct {
+	conf sqliteConf
 	db   *sql.DB
 }
 
-// Create a new backend based on conf.
-func NewBackend(conf *config.Opts) *Backend {
-	backend := new(Backend)
-	backend.conf = conf
-	return backend
+func (s *SQLite) Config() config.BackendConfig {
+	return &s.conf
 }
 
-// Initialize the backend, setting up the database connection.
-func (b *Backend) Init() error {
-	if b == nil {
+func (s *SQLite) Name() string {
+	return backendName
+}
+
+func (s *SQLite) Init() error {
+	if s == nil {
 		return errors.New("No backend present")
 	}
-	db, err := sql.Open("sqlite3", b.conf.DBFile())
+	db, err := sql.Open("sqlite3", s.conf.dbFile.Value)
 	if err != nil {
 		return errors.Wrap(err, "Unable to establish database connection")
 	}
-	b.db = db
+	s.db = db
 	// Setup schema
-	_, err = b.db.Exec(`
+	_, err = s.db.Exec(`
 CREATE TABLE IF NOT EXISTS task (
 	name TEXT NOT NULL,
 	started INTEGER NOT NULL,
@@ -47,42 +83,40 @@ CREATE TABLE IF NOT EXISTS task (
 		return errors.Wrap(err, "Unable to setup database")
 	}
 
-	_, err = b.db.Exec(
+	_, err = s.db.Exec(
 		"CREATE INDEX IF NOT EXISTS task_name ON task (name);")
 	return errors.Wrap(err, "Unable to setup database")
 }
 
-// Close the backend.
-func (b *Backend) Close() error {
-	if b == nil {
+func (s *SQLite) Close() error {
+	if s == nil {
 		return errors.New("No backend present")
 	}
-	return b.db.Close()
+	return s.db.Close()
 }
 
-// Save a task to the database, usually after stopping it first.
-func (b *Backend) Save(task msg.Task) error {
-	if b == nil {
+func (s *SQLite) Save(task msg.Task) error {
+	if s == nil {
 		return errors.New("No backend present")
 	}
 	if task.IsRunning() {
 		panic("Cannot save an active task.")
 	}
-	_, err := b.db.Exec(
+	_, err := s.db.Exec(
 		"INSERT INTO task (name, started, ended) VALUES (?, ?, ?);",
 		task.Name, task.Started.Unix(), task.Ended.Unix())
 	return errors.Wrapf(err, "Error while saving %v", task)
 }
 
 // Query the database based on the given query details.
-func (b *Backend) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
+func (s *SQLite) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
 	// TODO: Move this function to the handler instead and keep this out of the backend?
 	if len(param) < 2 {
 		return nil, errors.Errorf("Invalid query parameter: %v", param)
 	}
 
 	var sum []msg.Summary
-	if b == nil {
+	if s == nil {
 		return sum, errors.New("No backend present")
 	}
 	var err error
@@ -93,7 +127,7 @@ func (b *Backend) Query(taskName string, param msg.QueryParam) ([]msg.Summary, e
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 0, 1)
-		sum, err = b.queryTaskBetween(taskName, start, end)
+		sum, err = s.queryTaskBetween(taskName, start, end)
 	case msg.QryBetween:
 		if len(param) < 3 {
 			return nil, errors.Errorf("Invalid query parameter: %v", param)
@@ -106,21 +140,21 @@ func (b *Backend) Query(taskName string, param msg.QueryParam) ([]msg.Summary, e
 		if err != nil {
 			return nil, err
 		}
-		sum, err = b.queryTaskBetween(taskName, start, end)
+		sum, err = s.queryTaskBetween(taskName, start, end)
 	case msg.QryMonth:
 		start, err := time.Parse("2006-01", param[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 1, 0)
-		sum, err = b.queryTaskBetween(taskName, start, end)
+		sum, err = s.queryTaskBetween(taskName, start, end)
 	case msg.QryYear:
 		start, err := time.Parse("2006", param[1])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(1, 0, 0)
-		sum, err = b.queryTaskBetween(taskName, start, end)
+		sum, err = s.queryTaskBetween(taskName, start, end)
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Error in database query")
@@ -134,13 +168,13 @@ func (b *Backend) Query(taskName string, param msg.QueryParam) ([]msg.Summary, e
 }
 
 // Query the total time spent on a task between start and end.
-func (b *Backend) queryTaskBetween(task string, start time.Time, end time.Time) ([]msg.Summary, error) {
+func (s *SQLite) queryTaskBetween(task string, start time.Time, end time.Time) ([]msg.Summary, error) {
 	if task == msg.TskAllTasks {
-		return b.queryAllTasksBetween(start, end)
+		return s.queryAllTasksBetween(start, end)
 	}
 	// FIXME: total is a non-standard function present in SQLite. Making it
 	// work with sum() seems preferable. NULL-behaviour needs to be tested.
-	rows, err := b.db.Query(`
+	rows, err := s.db.Query(`
 SELECT total(ended - started), min(started), max(ended) FROM task
 WHERE name = ?
   AND started >= ?
@@ -169,8 +203,8 @@ GROUP BY name;`,
 }
 
 // Query the total time spent on all tasks between start and end.
-func (b *Backend) queryAllTasksBetween(start, end time.Time) ([]msg.Summary, error) {
-	rows, err := b.db.Query(`
+func (s *SQLite) queryAllTasksBetween(start, end time.Time) ([]msg.Summary, error) {
+	rows, err := s.db.Query(`
 SELECT name, total(ended-started), min(started), max(ended) FROM task
 WHERE started >= ?
   AND ended < ?

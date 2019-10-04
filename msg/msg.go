@@ -11,27 +11,27 @@ import (
 
 const (
 	// Special "task" meaning show info for all tasks
-	TskAllTasks = "--all"
+	TskAllTasks = ":all"
 	// Flags and params -- no modifiers
-	PrmToday     = "--today"
-	PrmYesterday = "--yesterday"
-	PrmEver      = "--ever"
-	PrmCombine   = "--combine" // Whether to combine times for all given tasks
+	PrmToday     = ":today"
+	PrmYesterday = ":yesterday"
+	PrmEver      = ":ever"
+	PrmCombine   = ":combine" // Whether to combine times for all given tasks
 	// Flags and params -- modifiers required
-	PrmDate      = "--day"
-	PrmMonth     = "--month"
-	PrmYear      = "--year"
-	PrmWeeksAgo  = "--weeks-ago"
-	PrmMonthsAgo = "--months-ago"
-	PrmYearsAgo  = "--years-ago"
-	PrmThisWeek  = "--this-week"
-	PrmLastWeek  = "--last-week"
-	PrmThisMonth = "--this-month"
-	PrmLastMonth = "--last-month"
-	PrmThisYear  = "--this-year"
-	PrmLastYear  = "--last-year"
-	PrmSince     = "--since"
-	PrmBetween   = "--between"
+	PrmDate      = ":day"
+	PrmMonth     = ":month"
+	PrmYear      = ":year"
+	PrmWeeksAgo  = ":weeks-ago"
+	PrmMonthsAgo = ":months-ago"
+	PrmYearsAgo  = ":years-ago"
+	PrmThisWeek  = ":this-week"
+	PrmLastWeek  = ":last-week"
+	PrmThisMonth = ":this-month"
+	PrmLastMonth = ":last-month"
+	PrmThisYear  = ":this-year"
+	PrmLastYear  = ":last-year"
+	PrmSince     = ":since"
+	PrmBetween   = ":between"
 	// Query details -- static
 	QryDay   = "day"
 	QryMonth = "month"

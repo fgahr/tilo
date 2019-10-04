@@ -5,34 +5,18 @@ package server
 // with explanations.
 
 import (
-	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
-	"log"
 )
-
-// TODO: Rename to something sane
-func (s *Server) logDebugSome(format string, v ...interface{}) {
-	if s.conf.DebugLevel >= config.DebugSome {
-		log.Printf(format, v...)
-	}
-}
-
-// TODO: Rename to something sane
-func (s *Server) logDebugAll(format string, v ...interface{}) {
-	if s.conf.DebugLevel >= config.DebugAll {
-		log.Printf(format, v...)
-	}
-}
 
 // Log a request at the appropriate debug level.
 func (s *Server) logCommand(cmd msg.Cmd) {
-	s.logDebugSome("Processing command: %v\n", cmd)
+	s.logFmtInfo("Processing command: %v\n", cmd)
 }
 
 // Log a response at the appropriate debug level.
 func (s *Server) logResponse(resp msg.Response) {
-	s.logDebugAll("Returning response: %v\n", resp)
+	s.logFmtDebug("Returning response: %v\n", resp)
 }
 
 // Answer the request with the provided response.
@@ -45,9 +29,9 @@ func (s *Server) SaveTask(task msg.Task) error {
 	if task.IsRunning() {
 		return errors.New("Cannot save an active task")
 	}
-	s.logDebugSome("Saving task: %v\n", task)
+	s.logFmtInfo("Saving task: %v\n", task)
 	if err := s.backend.Save(task); err != nil {
-		s.logDebugSome("%v\n", err)
+		s.logFmtInfo("%v\n", err)
 		return err
 	}
 	return nil
@@ -56,7 +40,7 @@ func (s *Server) SaveTask(task msg.Task) error {
 // Change the server's current task.
 func (s *Server) SetActiveTask(taskName string) {
 	if s.CurrentTask.IsRunning() {
-		s.logDebugAll("Task was not stopped before being superseded: %v\n", s.CurrentTask)
+		s.logWarn("Task was not stopped before being superseded:", s.CurrentTask)
 		s.CurrentTask.Stop()
 	}
 	s.CurrentTask = msg.FreshTask(taskName)
@@ -92,6 +76,6 @@ func (s *Server) Query(taskName string, param msg.QueryParam) ([]msg.Summary, er
 func (s *Server) InitiateShutdown() {
 	close(s.shutdownChan)
 	if r := recover(); r != nil {
-		log.Println(r)
+		s.logWarn(r)
 	}
 }
