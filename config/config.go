@@ -241,6 +241,20 @@ func (c *Opts) AsEnvKeyValue() []string {
 	return result
 }
 
+// Take a list of environment-compatible key=value pairs and add tilo-options.
+func (c *Opts) MergeIntoEnv(env []string) []string {
+	var result []string
+	for _, keyValuePair := range env {
+		// Skip tilo-related config. We assume we already have the definitive
+		// configuration and append it afterwards
+		if !strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
+			result = append(result, keyValuePair)
+		}
+	}
+	return append(result, c.AsEnvKeyValue()...)
+}
+
+// Read configuration from a config file.
 func FromFile(configFile string) (rawConf, error) {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		return rawConf{}, nil
@@ -272,28 +286,29 @@ func FromFile(configFile string) (rawConf, error) {
 	return result, nil
 }
 
-func FromCommandLineParams(params []string) (rawConf, []string, error) {
+// Read a configuration from command line parameters.
+func FromCommandLineParams(args []string) (rawConf, []string, error) {
 	result := makeRawConf()
 	var unused []string
-	for i := 0; i < len(params); i++ {
-		param := params[i]
+	for i := 0; i < len(args); i++ {
+		param := args[i]
 		if strings.HasPrefix(param, CLI_VAR_PREFIX) {
 			var rawKey, value string
+			// Value in the same arg?
 			if strings.Contains(param, "=") {
-				pair := strings.Split(param, "=")
-				rawKey, value = pair[0], pair[1]
+				rawKey, value = splitKeyValue(param)
 				if value == "" {
-					return result, params, errors.New("No value for parameter: " + param)
+					return result, args, errors.New("No value for parameter: " + param)
 				}
-			} else {
+			} else { // Value in the next arg
 				rawKey = param
-				if i+1 == len(params) {
-					return result, params, errors.New("No value for parameter: " + param)
-				} else if strings.HasPrefix(params[i+1], CLI_VAR_PREFIX) {
-					return result, params, errors.New("Not a valid value for parameter " + param + ": " + params[i+1])
+				if i+1 == len(args) {
+					return result, args, errors.New("No value for parameter: " + param)
+				} else if strings.HasPrefix(args[i+1], CLI_VAR_PREFIX) {
+					return result, args, errors.New("Not a valid value for parameter " + param + ": " + args[i+1])
 				}
 				i++
-				value = params[i]
+				value = args[i]
 			}
 			key := strings.Replace(rawKey, CLI_VAR_PREFIX, "", 1)
 			result.values[key] = value
@@ -305,19 +320,29 @@ func FromCommandLineParams(params []string) (rawConf, []string, error) {
 	return result, unused, nil
 }
 
+// Read a configuration from environment-compatible key=value pairs.
 func FromEnvironment(env []string) rawConf {
 	result := makeRawConf()
 	for _, keyValuePair := range env {
 		if strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
-			keyAndValue := strings.Split(keyValuePair, "=")
-			// No need to save empty values
-			if keyAndValue[1] == "" {
+			rawKey, value := splitKeyValue(keyValuePair)
+			if rawKey == "" {
+				// No need to save empty values
 				continue
 			}
-			key := strings.Replace(keyAndValue[0], ENV_VAR_PREFIX, "", 1)
-			result.values[key] = keyAndValue[1]
+			key := strings.Replace(rawKey, ENV_VAR_PREFIX, "", 1)
+			result.values[key] = value
 			result.inUse[key] = false
 		}
 	}
 	return result
+}
+
+func splitKeyValue(str string) (string, string) {
+	if !strings.Contains(str, "=") {
+		return "", ""
+	}
+
+	pair := strings.Split(str, "=")
+	return pair[0], pair[1]
 }

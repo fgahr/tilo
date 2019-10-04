@@ -266,6 +266,7 @@ func (s *Server) shutdown() {
 	s.logInfo("Shutdown complete.")
 }
 
+// TODO: Move to client package?
 // Start a server in a background process.
 func StartInBackground(conf *config.Opts) (int, error) {
 	sysProcAttr := syscall.SysProcAttr{}
@@ -275,11 +276,9 @@ func StartInBackground(conf *config.Opts) (int, error) {
 		return 0, errors.Wrap(err, "Unable to start server in background")
 	}
 	procAttr := os.ProcAttr{
-		Dir: confDir,
-		// FIXME: Some tilo-specific options could appear twice, even with conflicting values
-		Env: append(os.Environ(), conf.AsEnvKeyValue()...),
-		// stdin, stdout, stderr
-		Files: []*os.File{nil, nil, nil},
+		Dir:   confDir,
+		Env:   conf.MergeIntoEnv(os.Environ()),
+		Files: []*os.File{nil, nil, nil}, // stdin, stdout, stderr
 		Sys:   &sysProcAttr,
 	}
 
