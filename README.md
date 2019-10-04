@@ -42,6 +42,19 @@ information about task changes and server shutdown.
 Sample output can be gathered with the `tilo listen` command. This way it can also
 be used in e.g. shell scripts.
 
+# Configuration
+Configuration is possible, in ascending priority, via a configuration file,
+environment variables, and command line arguments. The configuration file is
+typically located under `~/.config/tilo/config` but another file can be chosen
+via command line or environment variables.
+
+When a server is started in a background process, all configuration is passed
+via the process environment. For a foreground server process, all three ways are
+available.
+
+For now there are not a lot of options available. Documentation will follow when
+things get more interesting.
+
 # Bugs
 There are a few that I'm aware of and many more yet unbeknownst to me. Feel
 free to find them and let me know. There may already be a `FIXME` in the code.
@@ -60,3 +73,4 @@ https://github.com/fgahr/tilo-systray
 ## Other
 - Dynamic help system
 - Declarative argument parsing (partially implemented for config options)
+- Different output options (CSV, JSON, ...)
