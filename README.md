@@ -54,11 +54,9 @@ https://github.com/fgahr/tilo-systray
 # TODOs
 ## New commands:
 - `recent`: Shows a given number of recently logged tasks
-- `undo`: Undo a logged task, ideally with interactive choice
+- `undo`: Delete one or several logged tasks, ideally with interactive choice
 - `log`: Save a new log entry, in case you forgot to start the timer
 - ...
 ## Other
 - Dynamic help system
-- Declarative argument parsing
-- Configuration based on command-line parameters, environment variables, and a
-  config file (currently: none)
+- Declarative argument parsing (partially implemented for config options)
