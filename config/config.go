@@ -271,12 +271,9 @@ func FromFile(configFile string) (rawConf, error) {
 			continue
 		}
 
-		keyAndValue := strings.Split(trimmed, "=")
-		if len(keyAndValue) == 1 || len(keyAndValue) > 2 {
-			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)
-		}
-		key := strings.TrimSpace(keyAndValue[0])
-		value := strings.TrimSpace(keyAndValue[1])
+		rawKey, rawValue := splitKeyValue(trimmed)
+		key := strings.TrimSpace(rawKey)
+		value := strings.TrimSpace(rawValue)
 		if key == "" || value == "" {
 			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)
 		}
