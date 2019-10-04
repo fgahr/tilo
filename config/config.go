@@ -249,9 +249,14 @@ func FromFile(configFile string) (rawConf, error) {
 	data, _ := ioutil.ReadFile(configFile)
 	asString := string(data)
 	lines := strings.Split(asString, "\n")
-	for lnum, fullLine := range lines {
+	for i, fullLine := range lines {
+		lnum := i + 1
 		line := strings.Split(fullLine, "#")[0]
 		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+
 		keyAndValue := strings.Split(trimmed, "=")
 		if len(keyAndValue) == 1 || len(keyAndValue) > 2 {
 			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)

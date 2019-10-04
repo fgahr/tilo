@@ -1,6 +1,8 @@
 package config
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -28,6 +30,28 @@ func (c *testBackendConfig) AcceptedItems() []*Item {
 	return []*Item{&c.foo, &c.bar}
 }
 
+func cliVar(name string) string {
+	return CLI_VAR_PREFIX + name
+}
+
+func cliVal(name, value string) string {
+	return CLI_VAR_PREFIX + name + "=" + value
+}
+
+func envVar(name string) string {
+	return ENV_VAR_PREFIX + name
+}
+
+func envVal(name, value string) string {
+	return ENV_VAR_PREFIX + name + "=" + value
+}
+
+func expect(t *testing.T, varName string, value string, expected string) {
+	if value != expected {
+		t.Errorf("%s not set to '%s', instead: %s", varName, expected, value)
+	}
+}
+
 func TestBackendSetFromArgs(t *testing.T) {
 	backend := "backendFromArgs"
 	RegisterBackend(newTestBackendConfig(backend))
@@ -47,7 +71,7 @@ func TestBackendSetFromEnv(t *testing.T) {
 	RegisterBackend(newTestBackendConfig(backend))
 	defer unsetBackendConfig(backend)
 
-	env := []string{ENV_VAR_PREFIX + "BACKEND=" + backend}
+	env := []string{envVal("BACKEND", backend)}
 	defer func() {
 		if r := recover(); r != nil {
 			t.Error("Failed to recognize backend:", backend, r)
@@ -64,16 +88,41 @@ func TestBackendParametersFromArgs(t *testing.T) {
 
 	newFoo := "new-foo"
 	newBar := "new-bar"
-	args := []string{CLI_VAR_PREFIX + "backend=" + backendName, CLI_VAR_PREFIX + "foo", newFoo}
-	env := []string{ENV_VAR_PREFIX + "BAR=" + newBar}
+	args := []string{cliVal("backend", backendName), cliVar("foo"), newFoo}
+	env := []string{envVal("BAR", newBar)}
 	_, _, err := GetConfig(args, env)
 	if err != nil {
 		t.Error(err)
 	}
-	if backendConf.foo.Value != newFoo {
-		t.Errorf("foo not set to '%s', instead: %s", newFoo, backendConf.foo.Value)
+
+	expect(t, "foo", backendConf.foo.Value, newFoo)
+	expect(t, "bar", backendConf.bar.Value, newBar)
+}
+
+func TestParametersFromFile(t *testing.T) {
+	backendName := "backendParametersFromFile"
+	backendConf := newTestBackendConfig(backendName)
+	RegisterBackend(backendConf)
+	defer unsetBackendConfig(backendName)
+
+	file, err := ioutil.TempFile(os.TempDir(), "tilo_config")
+	if err != nil {
+		t.Error(err)
 	}
-	if backendConf.bar.Value != newBar {
-		t.Errorf("foo not set to '%s', instead: %s", newBar, backendConf.bar.Value)
+	defer os.Remove(file.Name())
+
+	if _, err = file.WriteString("foo=fooValue\n#bar=notBar\nlog_level=trace"); err != nil {
+		t.Error(err)
 	}
+
+	args := []string{cliVal("conf-file", file.Name()), cliVar("backend"), backendName}
+	conf, _, err := GetConfig(args, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expect(t, "config file", conf.ConfFile.Value, file.Name())
+	expect(t, "log level", conf.LogLevel.Value, "trace")
+	expect(t, "foo", backendConf.foo.Value, "fooValue")
+	expect(t, "bar", backendConf.bar.Value, "bar")
 }
