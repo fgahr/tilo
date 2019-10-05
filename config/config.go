@@ -275,7 +275,7 @@ func FromFile(configFile string) (rawConf, error) {
 		key := strings.TrimSpace(rawKey)
 		value := strings.TrimSpace(rawValue)
 		if key == "" || value == "" {
-			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, line)
+			return result, errors.Errorf("Error in file %s, line %d: %s", configFile, lnum, fullLine)
 		}
 		result.values[key] = value
 		result.inUse[key] = false
