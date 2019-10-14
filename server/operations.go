@@ -30,7 +30,7 @@ func (s *Server) SaveTask(task msg.Task) error {
 		return errors.New("Cannot save an active task")
 	}
 	s.logFmtInfo("Saving task: %v\n", task)
-	if err := s.backend.Save(task); err != nil {
+	if err := s.Backend.Save(task); err != nil {
 		s.logFmtInfo("%v\n", err)
 		return err
 	}
@@ -65,11 +65,6 @@ func (s *Server) RegisterListener(req *Request) (NotificationListener, error) {
 	// FIXME: Make thread-safe
 	s.listeners = append(s.listeners, lst)
 	return lst, nil
-}
-
-// Query the server's backend for a task's within the given parameters.
-func (s *Server) Query(taskName string, param msg.QueryParam) ([]msg.Summary, error) {
-	return s.backend.Query(taskName, param)
 }
 
 // Initiate the server to shut down, accepting no further connections.

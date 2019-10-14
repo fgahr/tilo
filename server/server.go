@@ -42,7 +42,7 @@ func RegisterOperation(name string, operation ServerOperation) {
 type Server struct {
 	shutdownChan   chan struct{}          // Used to communicate shutdown requests
 	conf           *config.Opts           // Configuration parameters for this instance
-	backend        backend.Backend        // The database backend
+	Backend        backend.Backend        // The database backend
 	socketListener net.Listener           // Listener on the client request socket
 	CurrentTask    msg.Task               // The currently active task, if any
 	listeners      []NotificationListener // Listeners for task change notifications
@@ -116,7 +116,7 @@ func (s *Server) init() error {
 		backend.Close()
 		return err
 	} else {
-		s.backend = backend
+		s.Backend = backend
 	}
 
 	// Open request socket.

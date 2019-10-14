@@ -4,6 +4,7 @@ package backend
 import (
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
+	"time"
 )
 
 // Type representing a database backend.
@@ -13,9 +14,10 @@ type Backend interface {
 	Init() error
 	Close() error
 	Save(task msg.Task) error
-	// TODO: Split into several meaningful methods?
-	Query(taskName string, param msg.QueryParam) ([]msg.Summary, error)
 	Config() config.BackendConfig
+	// TODO: Split into several meaningful methods?
+	GetTaskBetween(task string, start time.Time, end time.Time) ([]msg.Summary, error)
+	GetAllTasksBetween(start time.Time, end time.Time) ([]msg.Summary, error)
 }
 
 var backends = make(map[string]Backend)
