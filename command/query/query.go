@@ -19,8 +19,7 @@ type QueryParamHandler struct {
 }
 
 func (h QueryParamHandler) HandleParams(cmd *msg.Cmd, params []string) ([]string, error) {
-	// TODO: Move to this package
-	msg.ParseQueryArgs(params, cmd)
+	parseQueryArgs(params, cmd)
 	return nil, nil
 }
 
