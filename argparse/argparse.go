@@ -194,20 +194,15 @@ func hasWhitespace(str string) bool {
 	return strings.ContainsAny(str, " \t\n")
 }
 
-// TODO: Doc comments. This one is important.
-type Quantity struct {
-	Type  string
-	Elems []string
-}
-
-func singleQuantity(t string, elems ...string) []Quantity {
-	return []Quantity{Quantity{Type: t, Elems: elems}}
+func singleQuantity(t string, elems ...string) []msg.Quantity {
+	return []msg.Quantity{msg.Quantity{Type: t, Elems: elems}}
 }
 
 type Param struct {
 	Name        string
 	RequiresArg bool
 	Quantifier  Quantifier
+	Description string
 }
 
 type paramHandler struct {
@@ -215,7 +210,40 @@ type paramHandler struct {
 }
 
 func (p paramHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) {
-	return args, nil
+	quant := []msg.Quantity{}
+	unused := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if isParamIdentifier(arg) {
+			if param, ok := p.params[cleanParam(arg)]; ok {
+				pArg := ""
+				if param.RequiresArg {
+					if strings.Contains(arg, "=") {
+						// Quantity contained in argument.
+						pArg = strings.Split(arg, "=")[1]
+					} else {
+						// Quantity in next argument.
+						i++
+						if i == len(args) {
+							return args, errors.New("No argument for parameter " + param.Name)
+						}
+						pArg = args[i]
+					}
+				} else {
+					// If no arg is required, we can pass the empty string.
+				}
+				// Parse and add to list.
+				q, err := param.Quantifier.Parse(pArg)
+				if err != nil {
+					return unused, err
+				}
+				quant = append(quant, q...)
+			}
+		} else {
+			unused = append(unused, arg)
+		}
+	}
+	return unused, nil
 }
 
 func HandlerForParams(params []Param) ArgHandler {
@@ -231,11 +259,15 @@ func HandlerForParams(params []Param) ArgHandler {
 }
 
 func isParamIdentifier(str string) bool {
-	return strings.HasPrefix(str, ":")
+	return strings.HasPrefix(str, ParamIdentifierPrefix)
+}
+
+func cleanParam(str string) string {
+	return strings.TrimLeft(strings.Split(str, "=")[0], ParamIdentifierPrefix)
 }
 
 type Quantifier interface {
-	Parse(str string) ([]Quantity, error)
+	Parse(str string) ([]msg.Quantity, error)
 	Describe() string
 }
 
@@ -247,8 +279,8 @@ func ListQuantifierOf(elem Quantifier) Quantifier {
 	return ListQuantifier{elem}
 }
 
-func (lq ListQuantifier) Parse(str string) ([]Quantity, error) {
-	qnt := []Quantity{}
+func (lq ListQuantifier) Parse(str string) ([]msg.Quantity, error) {
+	qnt := []msg.Quantity{}
 	for _, part := range strings.Split(str, ",") {
 		nxt, err := lq.elem.Parse(part)
 		if err != nil {
@@ -271,8 +303,8 @@ func PairQuantifierOf(elem Quantifier) Quantifier {
 	return PairQuantifier{elem}
 }
 
-func (pq PairQuantifier) Parse(str string) ([]Quantity, error) {
-	qnt := []Quantity{}
+func (pq PairQuantifier) Parse(str string) ([]msg.Quantity, error) {
+	qnt := []msg.Quantity{}
 	fields := strings.Split(str, ":")
 	if len(fields) != 2 {
 		return qnt, errors.New("Not a pair: " + str)
@@ -293,7 +325,7 @@ func (pq PairQuantifier) Describe() string {
 
 type DateQuantifier struct{}
 
-func (dq DateQuantifier) Parse(str string) ([]Quantity, error) {
+func (dq DateQuantifier) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006-01-02", str)
 	return singleQuantity("day", str), err
 }
@@ -304,7 +336,7 @@ func (dq DateQuantifier) Describe() string {
 
 type MonthQuantifier struct{}
 
-func (mq MonthQuantifier) Parse(str string) ([]Quantity, error) {
+func (mq MonthQuantifier) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006-01", str)
 	return singleQuantity("month", str), err
 }
@@ -315,7 +347,7 @@ func (mq MonthQuantifier) Describe() string {
 
 type YearQuantifier struct{}
 
-func (yq YearQuantifier) Parse(str string) ([]Quantity, error) {
+func (yq YearQuantifier) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006", str)
 	return singleQuantity("year", str), err
 }
@@ -328,7 +360,7 @@ type DaysAgoQuantifier struct {
 	Now time.Time
 }
 
-func (daq DaysAgoQuantifier) Parse(str string) ([]Quantity, error) {
+func (daq DaysAgoQuantifier) Parse(str string) ([]msg.Quantity, error) {
 	days, err := strconv.Atoi(str)
 	return singleQuantity("day", isoDate(daq.Now.AddDate(0, 0, -days))), err
 }
@@ -341,7 +373,7 @@ type MonthsAgoQuantifier struct {
 	Now time.Time
 }
 
-func (maq MonthsAgoQuantifier) Parse(str string) ([]Quantity, error) {
+func (maq MonthsAgoQuantifier) Parse(str string) ([]msg.Quantity, error) {
 	months, err := strconv.Atoi(str)
 	return singleQuantity("month", isoMonth(maq.Now.AddDate(0, -months, 0))), err
 }
