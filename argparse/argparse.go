@@ -82,6 +82,8 @@ func (h multiTaskHandler) describe() string {
 }
 
 type ParamHandler interface {
+	// Parse the params and modify cmd accordingly.
+	// Returns unused arguments and a possible error.
 	HandleParams(cmd *msg.Cmd, params []string) ([]string, error)
 }
 
@@ -150,6 +152,7 @@ func (p *Parser) Parse(args []string) (msg.Cmd, error) {
 }
 
 // Warn the user about arguments being unevaluated.
+// If args is empty, no warning is issued.
 func WarnUnused(args []string) {
 	if len(args) > 0 {
 		fmt.Fprintln(os.Stderr, "Ignoring unused arguments:", args)
@@ -193,17 +196,19 @@ func hasWhitespace(str string) bool {
 	return strings.ContainsAny(str, " \t\n")
 }
 
-// TODO
+// TODO: Doc comments. This one is important.
 type Quantity struct {
-	// TODO
+	Tag   string
+	Type  string
+	Elems []string
 }
 
-func (q *Quantity) Add(more Quantity) {
-	// TODO
+func singleQuantity(t string, elems ...string) []Quantity {
+	return []Quantity{Quantity{Type: t, Elems: elems}}
 }
 
 type Quantifier interface {
-	Parse(str string) (Quantity, error)
+	Parse(str string) ([]Quantity, error)
 	Describe() string
 }
 
@@ -215,14 +220,14 @@ func ListQuantifierOf(elem Quantifier) Quantifier {
 	return ListQuantifier{elem}
 }
 
-func (lq ListQuantifier) Parse(str string) (Quantity, error) {
-	qnt := Quantity{}
+func (lq ListQuantifier) Parse(str string) ([]Quantity, error) {
+	qnt := []Quantity{}
 	for _, part := range strings.Split(str, ",") {
 		nxt, err := lq.elem.Parse(part)
 		if err != nil {
 			return qnt, err
 		}
-		qnt.Add(nxt)
+		qnt = append(qnt, nxt...)
 	}
 	return qnt, nil
 }
@@ -239,8 +244,8 @@ func PairQuantifierOf(elem Quantifier) Quantifier {
 	return PairQuantifier{elem}
 }
 
-func (pq PairQuantifier) Parse(str string) (Quantity, error) {
-	qnt := Quantity{}
+func (pq PairQuantifier) Parse(str string) ([]Quantity, error) {
+	qnt := []Quantity{}
 	fields := strings.Split(str, ":")
 	if len(fields) != 2 {
 		return qnt, errors.New("Not a pair: " + str)
@@ -250,7 +255,7 @@ func (pq PairQuantifier) Parse(str string) (Quantity, error) {
 		if err != nil {
 			return qnt, err
 		}
-		qnt.Add(nxt)
+		qnt = append(qnt, nxt...)
 	}
 	return qnt, nil
 }
@@ -261,10 +266,9 @@ func (pq PairQuantifier) Describe() string {
 
 type DateQuantifier struct{}
 
-func (dq DateQuantifier) Parse(str string) (Quantity, error) {
-	// TODO: Fix once Quantity is defined
+func (dq DateQuantifier) Parse(str string) ([]Quantity, error) {
 	_, err := time.Parse("2006-01-02", str)
-	return Quantity{}, err
+	return singleQuantity("date", str), err
 }
 
 func (dq DateQuantifier) Describe() string {
@@ -273,10 +277,9 @@ func (dq DateQuantifier) Describe() string {
 
 type MonthQuantifier struct{}
 
-func (mq MonthQuantifier) Parse(str string) (Quantity, error) {
-	// TODO: Fix once Quantity is defined
+func (mq MonthQuantifier) Parse(str string) ([]Quantity, error) {
 	_, err := time.Parse("2006-01", str)
-	return Quantity{}, err
+	return singleQuantity("month", str), err
 }
 
 func (mq MonthQuantifier) Describe() string {
@@ -285,10 +288,9 @@ func (mq MonthQuantifier) Describe() string {
 
 type YearQuantifier struct{}
 
-func (yq YearQuantifier) Parse(str string) (Quantity, error) {
-	// TODO: Fix once Quantity is defined
+func (yq YearQuantifier) Parse(str string) ([]Quantity, error) {
 	_, err := time.Parse("2006", str)
-	return Quantity{}, err
+	return singleQuantity("year", str), err
 }
 
 func (yq YearQuantifier) Describe() string {
