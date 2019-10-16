@@ -16,21 +16,12 @@ type QueryOperation struct {
 	// No state required
 }
 
-type QueryParamHandler struct {
-	// No state required
-}
-
-func (h QueryParamHandler) HandleParams(cmd *msg.Cmd, params []string) ([]string, error) {
-	parseQueryArgs(params, cmd)
-	return nil, nil
-}
-
 func (op QueryOperation) Command() string {
 	return "query"
 }
 
 func (op QueryOperation) Parser() *argparse.Parser {
-	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithParamHandler(QueryParamHandler{})
+	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler())
 }
 
 func (op QueryOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {

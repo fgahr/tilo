@@ -19,16 +19,16 @@ type CommandHandler struct {
 	command string
 }
 
-func (h *CommandHandler) HandleParams(_ *msg.Cmd, params []string) ([]string, error) {
-	if len(params) == 0 {
-		return params, errors.New("Require a command but none was given")
+func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error) {
+	if len(args) == 0 {
+		return args, errors.New("Require a command but none was given")
 	}
-	if isKnownCommand(params[0]) {
-		h.command = params[0]
+	if isKnownCommand(args[0]) {
+		h.command = args[0]
 	} else {
-		return params, errors.New("Not a known server command: " + params[0])
+		return args, errors.New("Not a known server command: " + args[0])
 	}
-	return params[1:], nil
+	return args[1:], nil
 }
 
 func isKnownCommand(str string) bool {
@@ -51,7 +51,7 @@ func (op ServerOperation) Command() string {
 }
 
 func (op ServerOperation) Parser() *argparse.Parser {
-	return argparse.CommandParser(op.Command()).WithoutTask().WithParamHandler(op.ch)
+	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
 func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {

@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	arg "github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"strconv"
@@ -39,6 +40,24 @@ const (
 	// Query details -- dynamic
 	QryBetween = "between"
 )
+
+type queryArgHandler struct {
+	quant map[string]arg.Quantifier
+}
+
+func (h *queryArgHandler) HandleArgs(cmd *msg.Cmd, params []string) ([]string, error) {
+	parseQueryArgs(params, cmd)
+	return nil, nil
+}
+
+func newQueryArgHandler() *queryArgHandler {
+	h := queryArgHandler{}
+	h.quant["day"] = arg.ListQuantifierOf(arg.DateQuantifier{})
+	h.quant["month"] = arg.ListQuantifierOf(arg.MonthQuantifier{})
+	h.quant["year"] = arg.ListQuantifierOf(arg.YearQuantifier{})
+	// TODO
+	return nil
+}
 
 func parseQueryArgs(args []string, cmd *msg.Cmd) error {
 	now := time.Now()
@@ -347,11 +366,6 @@ func yearsAgo(now time.Time, years int) msg.QueryParam {
 	return msg.QueryParam{QryYear, start.Format("2006")}
 }
 
-// Format as yyyy-MM-dd.
-func isoDate(t time.Time) string {
-	return t.Format("2006-01-02")
-}
-
 // Parse a comma-separated list of dates as query details.
 func getDays(s string) ([]msg.QueryParam, bool) {
 	dates, ok := getDates(s)
@@ -388,4 +402,9 @@ func isValidIsoDate(s string) bool {
 func isValidYearMonth(s string) bool {
 	_, err := time.Parse("2006-01", s)
 	return err == nil
+}
+
+// Format as yyyy-MM-dd.
+func isoDate(t time.Time) string {
+	return t.Format("2006-01-02")
 }

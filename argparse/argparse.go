@@ -5,13 +5,15 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
+	ParamIdentifierPrefix = ":"
 	// TODO: Should it be a public constant here? Other options? Package-private?
-	AllTasks string = ":all"
+	AllTasks string = ParamIdentifierPrefix + "all"
 )
 
 type taskHandler interface {
@@ -81,27 +83,27 @@ func (h multiTaskHandler) describe() string {
 	return AllTasks + "|task,..."
 }
 
-type ParamHandler interface {
+type ArgHandler interface {
 	// Parse the params and modify cmd accordingly.
 	// Returns unused arguments and a possible error.
-	HandleParams(cmd *msg.Cmd, params []string) ([]string, error)
+	HandleArgs(cmd *msg.Cmd, args []string) ([]string, error)
 }
 
-type noParamHandler struct{}
+type noArgHandler struct{}
 
-func (h noParamHandler) HandleParams(cmd *msg.Cmd, params []string) ([]string, error) {
-	return params, nil
+func (h noArgHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) {
+	return args, nil
 }
 
 // TODO: Move methods to builder?
 type Parser struct {
-	command      string
-	taskHandler  taskHandler
-	paramHandler ParamHandler
+	command     string
+	taskHandler taskHandler
+	argHandler  ArgHandler
 }
 
 func CommandParser(command string) *Parser {
-	return &Parser{command: command, taskHandler: nil, paramHandler: nil}
+	return &Parser{command: command, taskHandler: nil, argHandler: nil}
 }
 
 func (p *Parser) WithoutTask() *Parser {
@@ -120,12 +122,12 @@ func (p *Parser) WithMultipleTasks() *Parser {
 }
 
 func (p *Parser) WithoutParams() *Parser {
-	p.paramHandler = new(noParamHandler)
+	p.argHandler = new(noArgHandler)
 	return p
 }
 
-func (p *Parser) WithParamHandler(h ParamHandler) *Parser {
-	p.paramHandler = h
+func (p *Parser) WithArgHandler(h ArgHandler) *Parser {
+	p.argHandler = h
 	return p
 }
 
@@ -139,10 +141,10 @@ func (p *Parser) Parse(args []string) (msg.Cmd, error) {
 	if err != nil {
 		return cmd, err
 	}
-	if p.paramHandler == nil {
+	if p.argHandler == nil {
 		panic("Argument parser does not know how to handle parameters")
 	}
-	unusedArgs, err := p.paramHandler.HandleParams(&cmd, restArgs)
+	unusedArgs, err := p.argHandler.HandleArgs(&cmd, restArgs)
 	if err != nil {
 		return cmd, err
 	} else {
@@ -176,16 +178,12 @@ func GetTaskNames(taskField string) ([]string, error) {
 
 // Whether the given name is valid for a task.
 func validTaskName(name string) bool {
-	if strings.HasPrefix(name, ":") {
+	if isParamIdentifier(name) {
 		return false
 	} else if hasWhitespace(name) {
 		return false
 	}
 	return true
-}
-
-func isKeyword(word string) bool {
-	return strings.HasPrefix(word, ":") || !hasWhitespace(word)
 }
 
 func stripKeyword(raw string) string {
@@ -198,13 +196,42 @@ func hasWhitespace(str string) bool {
 
 // TODO: Doc comments. This one is important.
 type Quantity struct {
-	Tag   string
 	Type  string
 	Elems []string
 }
 
 func singleQuantity(t string, elems ...string) []Quantity {
 	return []Quantity{Quantity{Type: t, Elems: elems}}
+}
+
+type Param struct {
+	Name        string
+	RequiresArg bool
+	Quantifier  Quantifier
+}
+
+type paramHandler struct {
+	params map[string]Param
+}
+
+func (p paramHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) {
+	return args, nil
+}
+
+func HandlerForParams(params []Param) ArgHandler {
+	var pmap map[string]Param
+	for _, param := range params {
+		if _, ok := pmap[param.Name]; ok {
+			panic("Duplicate param name: " + param.Name)
+		}
+		pmap[param.Name] = param
+	}
+
+	return paramHandler{params: pmap}
+}
+
+func isParamIdentifier(str string) bool {
+	return strings.HasPrefix(str, ":")
 }
 
 type Quantifier interface {
@@ -268,7 +295,7 @@ type DateQuantifier struct{}
 
 func (dq DateQuantifier) Parse(str string) ([]Quantity, error) {
 	_, err := time.Parse("2006-01-02", str)
-	return singleQuantity("date", str), err
+	return singleQuantity("day", str), err
 }
 
 func (dq DateQuantifier) Describe() string {
@@ -295,4 +322,40 @@ func (yq YearQuantifier) Parse(str string) ([]Quantity, error) {
 
 func (yq YearQuantifier) Describe() string {
 	return "YYYY"
+}
+
+type DaysAgoQuantifier struct {
+	Now time.Time
+}
+
+func (daq DaysAgoQuantifier) Parse(str string) ([]Quantity, error) {
+	days, err := strconv.Atoi(str)
+	return singleQuantity("day", isoDate(daq.Now.AddDate(0, 0, -days))), err
+}
+
+func (daq DaysAgoQuantifier) Describe() string {
+	return "N"
+}
+
+type MonthsAgoQuantifier struct {
+	Now time.Time
+}
+
+func (maq MonthsAgoQuantifier) Parse(str string) ([]Quantity, error) {
+	months, err := strconv.Atoi(str)
+	return singleQuantity("month", isoMonth(maq.Now.AddDate(0, -months, 0))), err
+}
+
+func (maq MonthsAgoQuantifier) Describe() string {
+	return "N"
+}
+
+// Format as yyyy-MM-dd.
+func isoDate(t time.Time) string {
+	return t.Format("2006-01-02")
+}
+
+// Format as yyyy-MM.
+func isoMonth(t time.Time) string {
+	return t.Format("2006-01")
 }
