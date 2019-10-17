@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+const (
+	TimeDay     = "date"
+	TimeMonth   = "month"
+	TimeYear    = "year"
+	TimeBetween = "between"
+)
+
 type list struct {
 	elem arg.Quantifier
 }
@@ -62,49 +69,60 @@ func (p pair) DescribeUsage() string {
 	return fmt.Sprintf("%s:%[1]s", p.elem.DescribeUsage())
 }
 
-type Date struct{}
+type date struct{}
 
-func (dq Date) Parse(str string) ([]msg.Quantity, error) {
+func (dq date) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006-01-02", str)
 	return arg.SingleQuantity("day", str), err
 }
 
-func (dq Date) DescribeUsage() string {
+func (dq date) DescribeUsage() string {
 	return "YYYY-MM-DD"
 }
 
-type Month struct{}
+type month struct{}
 
-func (mq Month) Parse(str string) ([]msg.Quantity, error) {
+func (mq month) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006-01", str)
 	return arg.SingleQuantity("month", str), err
 }
 
-func (mq Month) DescribeUsage() string {
+func (mq month) DescribeUsage() string {
 	return "YYYY-MM"
 }
 
-type Year struct{}
+type year struct{}
 
-func (yq Year) Parse(str string) ([]msg.Quantity, error) {
+func (yq year) Parse(str string) ([]msg.Quantity, error) {
 	_, err := time.Parse("2006", str)
 	return arg.SingleQuantity("year", str), err
 }
 
-func (yq Year) DescribeUsage() string {
+func (yq year) DescribeUsage() string {
 	return "YYYY"
 }
 
+func SpecificDate() arg.Quantifier {
+	return date{}
+}
+
+func SpecificMonth() arg.Quantifier {
+	return month{}
+}
+
+func SpecificYear() arg.Quantifier {
+	return year{}
+}
+
 type fixedDateOffset struct {
-	now    time.Time
-	qType  string
-	years  int
-	months int
-	days   int
+	now   time.Time
+	qType string
+	years int
+	days  int
 }
 
 func (f fixedDateOffset) Parse(_ string) ([]msg.Quantity, error) {
-	return arg.SingleQuantity(f.qType, isoDate(f.now.AddDate(f.years, f.months, f.days))), nil
+	return arg.SingleQuantity(f.qType, isoDate(f.now.AddDate(f.years, 0, f.days))), nil
 }
 
 func (f fixedDateOffset) DescribeUsage() string {
@@ -124,8 +142,21 @@ func (f fixedWeekOffset) DescribeUsage() string {
 	return ""
 }
 
+type fixedMonthOffset struct {
+	now    time.Time
+	months int
+}
+
+func (f fixedMonthOffset) Parse(_ string) ([]msg.Quantity, error) {
+	return monthsAgo(f.now, f.months), nil
+}
+
+func (f fixedMonthOffset) DescribeUsage() string {
+	return ""
+}
+
 func FixedDayOffset(now time.Time, days int) arg.Quantifier {
-	return fixedDateOffset{now: now, qType: "day", days: days}
+	return fixedDateOffset{now: now, qType: TimeDay, days: days}
 }
 
 func FixedWeekOffset(now time.Time, weeks int) arg.Quantifier {
@@ -133,53 +164,82 @@ func FixedWeekOffset(now time.Time, weeks int) arg.Quantifier {
 }
 
 func FixedMonthOffset(now time.Time, months int) arg.Quantifier {
-	return fixedDateOffset{now: now, qType: "month", months: months}
+	return fixedMonthOffset{now: now, months: months}
 }
 
 func FixedYearOffset(now time.Time, years int) arg.Quantifier {
-	return fixedDateOffset{now: now, qType: "year", years: years}
+	return fixedDateOffset{now: now, qType: TimeYear, years: years}
 }
 
 // TODO: Combine date offset quantifiers into package-private meta-struct and
 // make available via functions?
 
-type DaysAgo struct {
-	Now time.Time
+type dynDaysAgo struct {
+	now time.Time
 }
 
-func (d DaysAgo) Parse(str string) ([]msg.Quantity, error) {
+func (d dynDaysAgo) Parse(str string) ([]msg.Quantity, error) {
 	days, err := strconv.Atoi(str)
-	return arg.SingleQuantity("day", isoDate(d.Now.AddDate(0, 0, -days))), err
+	return arg.SingleQuantity(TimeDay, isoDate(d.now.AddDate(0, 0, -days))), err
 }
 
-func (d DaysAgo) DescribeUsage() string {
+func (d dynDaysAgo) DescribeUsage() string {
 	return "N"
 }
 
-type MonthsAgo struct {
-	Now time.Time
+type dynWeeksAgo struct {
+	now time.Time
 }
 
-func (m MonthsAgo) Parse(str string) ([]msg.Quantity, error) {
+func (d dynWeeksAgo) Parse(str string) ([]msg.Quantity, error) {
+	weeks, err := strconv.Atoi(str)
+	return weeksAgo(d.now, weeks), err
+}
+
+func (d dynWeeksAgo) DescribeUsage() string {
+	return "N"
+}
+
+type dynMonthsAgo struct {
+	now time.Time
+}
+
+func (m dynMonthsAgo) Parse(str string) ([]msg.Quantity, error) {
 	months, err := strconv.Atoi(str)
-	return arg.SingleQuantity("month", isoMonth(m.Now.AddDate(0, -months, 0))), err
+	return monthsAgo(m.now, months), err
 }
 
-func (m MonthsAgo) DescribeUsage() string {
+func (m dynMonthsAgo) DescribeUsage() string {
 	return "N"
 }
 
-type YearsAgo struct {
-	Now time.Time
+type dynYearsAgo struct {
+	now time.Time
 }
 
-func (y YearsAgo) Parse(str string) ([]msg.Quantity, error) {
+func (y dynYearsAgo) Parse(str string) ([]msg.Quantity, error) {
 	years, err := strconv.Atoi(str)
-	return arg.SingleQuantity("year", isoYear(y.Now.AddDate(0, 0, -years))), err
+	return arg.SingleQuantity(TimeYear, isoYear(y.now.AddDate(0, 0, -years))), err
 }
 
-func (y YearsAgo) DescribeUsage() string {
+func (y dynYearsAgo) DescribeUsage() string {
 	return "N"
+}
+
+func DynamicDayOffset(now time.Time) arg.Quantifier {
+	return dynDaysAgo{now: now}
+}
+
+func DynamicWeekOffset(now time.Time) arg.Quantifier {
+	return dynWeeksAgo{now: now}
+}
+
+func DynamicMonthOffset(now time.Time) arg.Quantifier {
+	return dynMonthsAgo{now: now}
+}
+
+func DynamicYearOffset(now time.Time) arg.Quantifier {
+	return dynMonthsAgo{now: now}
 }
 
 // Quantity describing the week (Mon-Sun) a number of weeks before now.
@@ -194,7 +254,7 @@ func weeksAgo(now time.Time, weeks int) []msg.Quantity {
 		end = now
 	}
 
-	return arg.SingleQuantity("between", isoDate(start), isoDate(end))
+	return arg.SingleQuantity(TimeBetween, isoDate(start), isoDate(end))
 }
 
 // Quantity describing the month a number of months before now.
@@ -203,13 +263,7 @@ func monthsAgo(now time.Time, months int) []msg.Quantity {
 	// "overflowing" to the next month, e.g. May 31st going back 1 month
 	// is April 31st, in turn becoming May 1st. Hence normalize to the first.
 	firstInMonth := now.AddDate(0, -months, -(now.Day() - 1))
-	return arg.SingleQuantity("month", firstInMonth.Format("2006-01"))
-}
-
-// Quantity describing the a year a number of years before now.
-func yearsAgo(now time.Time, years int) []msg.Quantity {
-	start := now.AddDate(-years, 0, 0)
-	return arg.SingleQuantity("year", start.Format("2006"))
+	return arg.SingleQuantity(TimeMonth, isoMonth(firstInMonth))
 }
 
 // Format as yyyy-MM-dd.

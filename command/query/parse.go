@@ -15,31 +15,32 @@ const (
 	// Special "task" meaning show info for all tasks
 	TskAllTasks = arg.ParamIdentifierPrefix + "all"
 	// Flags and params -- no modifiers
-	PrmToday     = "today"
-	PrmYesterday = "yesterday"
-	PrmEver      = "ever"
-	// PrmCombine   = ":combine" // Whether to combine times for all given tasks
+	paramToday     = "today"
+	paramYesterday = "yesterday"
+	paramEver      = "ever"
 	// Flags and params -- modifiers required
-	PrmDate      = "day"
-	PrmMonth     = "month"
-	PrmYear      = "year"
-	PrmWeeksAgo  = "weeks-ago"
-	PrmMonthsAgo = "months-ago"
-	PrmYearsAgo  = "years-ago"
-	PrmThisWeek  = "this-week"
-	PrmLastWeek  = "last-week"
-	PrmThisMonth = "this-month"
-	PrmLastMonth = "last-month"
-	PrmThisYear  = "this-year"
-	PrmLastYear  = "last-year"
-	PrmSince     = "since"
-	PrmBetween   = "between"
+	paramDay       = "day"
+	paramMonth     = "month"
+	paramYear      = "year"
+	paramDaysAgo   = "days-ago"
+	paramWeeksAgo  = "weeks-ago"
+	paramMonthsAgo = "months-ago"
+	paramYearsAgo  = "years-ago"
+	paramThisWeek  = "this-week"
+	paramLastWeek  = "last-week"
+	paramThisMonth = "this-month"
+	paramLastMonth = "last-month"
+	paramThisYear  = "this-year"
+	paramLastYear  = "last-year"
+	paramSince     = "since"
+	paramBetween   = "between"
 	// Query details -- static
-	QryDay   = "day"
-	QryMonth = "month"
-	QryYear  = "year"
-	// Query details -- dynamic
-	QryBetween = "between"
+	// QryDay   = "day"
+	// QryMonth = "month"
+	// QryYear  = "year"
+	// // Query details -- dynamic
+	// QryBetween = "between"
+	// PrmCombine   = ":combine" // Whether to combine times for all given tasks
 )
 
 type queryArgHandler struct {
@@ -64,13 +65,13 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 	params := []arg.Param{
 		// Fixed day
 		arg.Param{
-			Name:        PrmToday,
+			Name:        paramToday,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedDayOffset(now, 0),
 			Description: "Today's activity",
 		},
 		arg.Param{
-			Name:        PrmYesterday,
+			Name:        paramYesterday,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedDayOffset(now, -1),
 			Description: "Yesterday's activity",
@@ -78,13 +79,13 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 
 		// Fixed week
 		arg.Param{
-			Name:        PrmThisWeek,
+			Name:        paramThisWeek,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedWeekOffset(now, 0),
 			Description: "This week's activity",
 		},
 		arg.Param{
-			Name:        PrmLastWeek,
+			Name:        paramLastWeek,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedWeekOffset(now, -1),
 			Description: "Last week's activity",
@@ -92,13 +93,13 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 
 		// Fixed month
 		arg.Param{
-			Name:        PrmThisMonth,
+			Name:        paramThisMonth,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedMonthOffset(now, 0),
 			Description: "This month's activity",
 		},
 		arg.Param{
-			Name:        PrmLastMonth,
+			Name:        paramLastMonth,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedMonthOffset(now, -1),
 			Description: "Last month's activity",
@@ -106,17 +107,66 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 
 		// Fixed year
 		arg.Param{
-			Name:        PrmThisYear,
+			Name:        paramThisYear,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedYearOffset(now, 0),
 			Description: "This year's activity",
 		},
 		arg.Param{
-			Name:        PrmLastYear,
+			Name:        paramLastYear,
 			RequiresArg: false,
 			Quantifier:  quantifier.FixedYearOffset(now, -1),
 			Description: "Last year's activity",
 		},
+
+		// Dynamic day/week/month/year
+		arg.Param{
+			Name:        paramDaysAgo,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.DynamicDayOffset(now)),
+			Description: "Activity N days ago.",
+		},
+		arg.Param{
+			Name:        paramWeeksAgo,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.DynamicWeekOffset(now)),
+			Description: "Activity N weeks ago.",
+		},
+		arg.Param{
+			Name:        paramMonthsAgo,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.DynamicMonthOffset(now)),
+			Description: "Activity N months ago.",
+		},
+		arg.Param{
+			Name:        paramYearsAgo,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.DynamicYearOffset(now)),
+			Description: "Activity N years ago.",
+		},
+
+		// Specific day/month/year
+		arg.Param{
+			Name:        paramDay,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.SpecificDate()),
+			Description: "Activity on a given day",
+		},
+		arg.Param{
+			Name:        paramMonth,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.SpecificMonth()),
+			Description: "Activity in a given month",
+		},
+		arg.Param{
+			Name:        paramYear,
+			RequiresArg: true,
+			Quantifier:  quantifier.ListOf(quantifier.SpecificYear()),
+			Description: "Activity in a given year",
+		},
+
+		// Interval since/between
+		// TODO
 	}
 
 	for _, param := range params {
@@ -163,21 +213,21 @@ type detailParser interface {
 
 func getDetailParsers() []detailParser {
 	return []detailParser{
-		noModDetailParser{id: PrmToday, f: daysAgoFunc(0)},
-		noModDetailParser{id: PrmYesterday, f: daysAgoFunc(1)},
-		noModDetailParser{id: PrmThisWeek, f: weeksAgoFunc(0)},
-		noModDetailParser{id: PrmLastWeek, f: weeksAgoFunc(1)},
-		noModDetailParser{id: PrmThisMonth, f: monthsAgoFunc(0)},
-		noModDetailParser{id: PrmLastMonth, f: monthsAgoFunc(1)},
-		noModDetailParser{id: PrmThisYear, f: yearsAgoFunc(0)},
-		noModDetailParser{id: PrmLastYear, f: yearsAgoFunc(1)},
-		noModDetailParser{id: PrmEver, f: getSinceEpoch},
-		singleModDetailParser{id: PrmDate, f: getDate},
-		singleModDetailParser{id: PrmMonth, f: getMonth},
-		singleModDetailParser{id: PrmMonthsAgo, f: getMonthsAgo},
-		singleModDetailParser{id: PrmYear, f: getYear},
-		singleModDetailParser{id: PrmYearsAgo, f: getYearsAgo},
-		singleModDetailParser{id: PrmSince, f: getSince},
+		noModDetailParser{id: paramToday, f: daysAgoFunc(0)},
+		noModDetailParser{id: paramYesterday, f: daysAgoFunc(1)},
+		noModDetailParser{id: paramThisWeek, f: weeksAgoFunc(0)},
+		noModDetailParser{id: paramLastWeek, f: weeksAgoFunc(1)},
+		noModDetailParser{id: paramThisMonth, f: monthsAgoFunc(0)},
+		noModDetailParser{id: paramLastMonth, f: monthsAgoFunc(1)},
+		noModDetailParser{id: paramThisYear, f: yearsAgoFunc(0)},
+		noModDetailParser{id: paramLastYear, f: yearsAgoFunc(1)},
+		noModDetailParser{id: paramEver, f: getSinceEpoch},
+		singleModDetailParser{id: paramDay, f: getDate},
+		singleModDetailParser{id: paramMonth, f: getMonth},
+		singleModDetailParser{id: paramMonthsAgo, f: getMonthsAgo},
+		singleModDetailParser{id: paramYear, f: getYear},
+		singleModDetailParser{id: paramYearsAgo, f: getYearsAgo},
+		singleModDetailParser{id: paramSince, f: getSince},
 		betweenDetailParser{},
 	}
 }
@@ -313,14 +363,14 @@ func (p singleModDetailParser) parse(now time.Time, mods ...string) (msg.QueryPa
 
 func getDate(mod string, _ time.Time) (msg.QueryParam, error) {
 	if isValidIsoDate(mod) {
-		return msg.QueryParam{QryDay, mod}, nil
+		return msg.QueryParam{quantifier.TimeDay, mod}, nil
 	}
 	return invalidDate(mod)
 }
 
 func getMonth(mod string, _ time.Time) (msg.QueryParam, error) {
 	if isValidYearMonth(mod) {
-		return msg.QueryParam{QryMonth, mod}, nil
+		return msg.QueryParam{quantifier.TimeMonth, mod}, nil
 	}
 	return msg.QueryParam{}, errors.Errorf("Not a valid year-month: %s", mod)
 }
@@ -338,7 +388,7 @@ func getYear(mod string, _ time.Time) (msg.QueryParam, error) {
 	if err != nil {
 		return msg.QueryParam{}, err
 	}
-	return msg.QueryParam{QryYear, fmt.Sprint(year)}, nil
+	return msg.QueryParam{quantifier.TimeYear, fmt.Sprint(year)}, nil
 }
 
 func getYearsAgo(mod string, now time.Time) (msg.QueryParam, error) {
@@ -351,7 +401,7 @@ func getYearsAgo(mod string, now time.Time) (msg.QueryParam, error) {
 
 func getSince(mod string, now time.Time) (msg.QueryParam, error) {
 	if isValidIsoDate(mod) {
-		return msg.QueryParam{QryBetween, mod, isoDate(now)}, nil
+		return msg.QueryParam{quantifier.TimeBetween, mod, isoDate(now)}, nil
 	}
 	return invalidDate(mod)
 }
@@ -359,7 +409,7 @@ func getSince(mod string, now time.Time) (msg.QueryParam, error) {
 type betweenDetailParser struct{}
 
 func (p betweenDetailParser) identifier() string {
-	return PrmBetween
+	return paramBetween
 }
 
 func (p betweenDetailParser) numberModifiers() int {
@@ -378,7 +428,7 @@ func (p betweenDetailParser) parse(now time.Time, mods ...string) (msg.QueryPara
 	if !isValidIsoDate(d2) {
 		return invalidDate(d2)
 	}
-	return msg.QueryParam{QryBetween, d1, d2}, nil
+	return msg.QueryParam{quantifier.TimeBetween, d1, d2}, nil
 }
 
 func invalidDate(s string) (msg.QueryParam, error) {
@@ -400,7 +450,7 @@ func shouldCombine(args []string) bool {
 // Detail describing a a date a number of days ago.
 func daysAgo(now time.Time, days int) msg.QueryParam {
 	day := now.AddDate(0, 0, -days).Format("2006-01-02")
-	return msg.QueryParam{QryDay, day}
+	return msg.QueryParam{quantifier.TimeDay, day}
 }
 
 // Detail describing the week (Mon-Sun) the given number of weeks ago.
@@ -414,7 +464,7 @@ func weeksAgo(now time.Time, weeks int) msg.QueryParam {
 	if end.After(now) {
 		end = now
 	}
-	return msg.QueryParam{QryBetween, isoDate(start), isoDate(end)}
+	return msg.QueryParam{quantifier.TimeBetween, isoDate(start), isoDate(end)}
 }
 
 // Detail describing the month (1st to last) the given number of months ago.
@@ -423,13 +473,13 @@ func monthsAgo(now time.Time, months int) msg.QueryParam {
 	// "overflowing" to the next month, e.g. May 31st going back 1 month
 	// is April 31st, in turn becoming May 1st. Hence normalize to the first.
 	firstInMonth := now.AddDate(0, -months, -(now.Day() - 1))
-	return msg.QueryParam{QryMonth, firstInMonth.Format("2006-01")}
+	return msg.QueryParam{quantifier.TimeMonth, firstInMonth.Format("2006-01")}
 }
 
 // Detail describing the full year the given number of years ago.
 func yearsAgo(now time.Time, years int) msg.QueryParam {
 	start := now.AddDate(-years, 0, 0)
-	return msg.QueryParam{QryYear, start.Format("2006")}
+	return msg.QueryParam{quantifier.TimeYear, start.Format("2006")}
 }
 
 // Parse a comma-separated list of dates as query details.
@@ -440,7 +490,7 @@ func getDays(s string) ([]msg.QueryParam, bool) {
 	}
 	var details []msg.QueryParam
 	for _, date := range dates {
-		details = append(details, msg.QueryParam{QryDay, date})
+		details = append(details, msg.QueryParam{quantifier.TimeDay, date})
 	}
 	return details, true
 }

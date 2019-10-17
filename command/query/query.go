@@ -2,6 +2,7 @@ package query
 
 import (
 	"github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/argparse/quantifier"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
@@ -53,16 +54,16 @@ func queryBackend(b backend.Backend, task string, param msg.Quantity) ([]msg.Sum
 		return sum, errors.New("No backend present")
 	}
 	var err error
-	// TODO: Some more length checks required. Will probably be restructured before that.
+	// TODO: Some more length checks required. Might be restructured beforehand.
 	switch param.Type {
-	case QryDay:
+	case quantifier.TimeDay:
 		start, err := time.Parse("2006-01-02", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 0, 1)
 		sum, err = b.GetTaskBetween(task, start, end)
-	case QryBetween:
+	case quantifier.TimeBetween:
 		if len(param.Elems) < 2 {
 			return nil, errors.Errorf("Invalid query parameter: %v", param)
 		}
@@ -75,14 +76,14 @@ func queryBackend(b backend.Backend, task string, param msg.Quantity) ([]msg.Sum
 			return nil, err
 		}
 		sum, err = b.GetTaskBetween(task, start, end)
-	case QryMonth:
+	case quantifier.TimeMonth:
 		start, err := time.Parse("2006-01", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 1, 0)
 		sum, err = b.GetTaskBetween(task, start, end)
-	case QryYear:
+	case quantifier.TimeYear:
 		start, err := time.Parse("2006", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
