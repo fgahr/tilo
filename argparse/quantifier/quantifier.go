@@ -42,27 +42,31 @@ func (lq list) DescribeUsage() string {
 }
 
 type pair struct {
+	tag  string
 	elem arg.Quantifier
 }
 
-func PairOf(elem arg.Quantifier) arg.Quantifier {
-	return pair{elem}
+func TaggedPair(tag string, elem arg.Quantifier) arg.Quantifier {
+	return pair{tag: tag, elem: elem}
 }
 
 func (p pair) Parse(str string) ([]msg.Quantity, error) {
-	qnt := []msg.Quantity{}
+	elems := []string{}
 	fields := strings.Split(str, ":")
 	if len(fields) != 2 {
-		return qnt, errors.New("Not a pair: " + str)
+		return arg.SingleQuantity(p.tag, elems...), errors.New("Not a pair: " + str)
 	}
 	for _, part := range fields {
 		nxt, err := p.elem.Parse(part)
 		if err != nil {
-			return qnt, err
+			return arg.SingleQuantity(p.tag, elems...), err
 		}
-		qnt = append(qnt, nxt...)
+		if len(nxt) != 1 || len(nxt[0].Elems) != 1 {
+			panic("Illegal pairing of quantifiers.")
+		}
+		elems = append(elems, nxt[0].Elems[0])
 	}
-	return qnt, nil
+	return arg.SingleQuantity(p.tag, elems...), nil
 }
 
 func (p pair) DescribeUsage() string {
@@ -240,6 +244,23 @@ func DynamicMonthOffset(now time.Time) arg.Quantifier {
 
 func DynamicYearOffset(now time.Time) arg.Quantifier {
 	return dynMonthsAgo{now: now}
+}
+
+type sinceDate struct {
+	now time.Time
+}
+
+func (s sinceDate) Parse(str string) ([]msg.Quantity, error) {
+	_, err := time.Parse("2006-01-02", str)
+	return arg.SingleQuantity(TimeBetween, str, isoDate(s.now)), err
+}
+
+func (s sinceDate) DescribeUsage() string {
+	return "YYYY-MM-DD"
+}
+
+func DynamicUntil(now time.Time) arg.Quantifier {
+	return sinceDate{now: now}
 }
 
 // Quantity describing the week (Mon-Sun) a number of weeks before now.

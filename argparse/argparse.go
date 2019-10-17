@@ -246,11 +246,12 @@ func (p paramHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) 
 			unused = append(unused, arg)
 		}
 	}
+	cmd.Quantities = quant
 	return unused, nil
 }
 
 func HandlerForParams(params []Param) ArgHandler {
-	var pmap map[string]Param
+	pmap := make(map[string]Param)
 	for _, param := range params {
 		if _, ok := pmap[param.Name]; ok {
 			panic("Duplicate param name: " + param.Name)
