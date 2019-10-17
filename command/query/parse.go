@@ -62,6 +62,7 @@ func (h *queryArgHandler) HandleArgs(cmd *msg.Cmd, params []string) ([]string, e
 func newQueryArgHandler(now time.Time) *queryArgHandler {
 	h := &queryArgHandler{now: now}
 	params := []arg.Param{
+		// Fixed day
 		arg.Param{
 			Name:        PrmToday,
 			RequiresArg: false,
@@ -74,7 +75,22 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 			Quantifier:  quantifier.FixedDayOffset(now, -1),
 			Description: "Yesterday's activity",
 		},
-		// TODO: This week, last week
+
+		// Fixed week
+		arg.Param{
+			Name:        PrmThisWeek,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedWeekOffset(now, 0),
+			Description: "This week's activity",
+		},
+		arg.Param{
+			Name:        PrmLastWeek,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedWeekOffset(now, -1),
+			Description: "Last week's activity",
+		},
+
+		// Fixed month
 		arg.Param{
 			Name:        PrmThisMonth,
 			RequiresArg: false,
@@ -87,6 +103,8 @@ func newQueryArgHandler(now time.Time) *queryArgHandler {
 			Quantifier:  quantifier.FixedMonthOffset(now, -1),
 			Description: "Last month's activity",
 		},
+
+		// Fixed year
 		arg.Param{
 			Name:        PrmThisYear,
 			RequiresArg: false,
