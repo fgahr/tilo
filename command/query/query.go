@@ -21,7 +21,7 @@ func (op QueryOperation) Command() string {
 }
 
 func (op QueryOperation) Parser() *argparse.Parser {
-	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler())
+	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler(time.Now()))
 }
 
 func (op QueryOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -35,8 +35,8 @@ func (op QueryOperation) ServerExec(srv *server.Server, req *server.Request) err
 	backend := srv.Backend
 Outer:
 	for _, task := range req.Cmd.Tasks {
-		for _, param := range req.Cmd.QueryParams {
-			if sum, err := queryBackend(backend, task, param); err != nil {
+		for _, quant := range req.Cmd.Quantities {
+			if sum, err := queryBackend(backend, task, quant); err != nil {
 				resp.SetError(errors.Wrap(err, "A query failed"))
 				break Outer
 			} else {
@@ -47,46 +47,43 @@ Outer:
 	return srv.Answer(req, resp)
 }
 
-func queryBackend(b backend.Backend, task string, param msg.QueryParam) ([]msg.Summary, error) {
-	if len(param) < 2 {
-		return nil, errors.Errorf("Invalid query parameter: %v", param)
-	}
-
+func queryBackend(b backend.Backend, task string, param msg.Quantity) ([]msg.Summary, error) {
 	var sum []msg.Summary
 	if b == nil {
 		return sum, errors.New("No backend present")
 	}
 	var err error
-	switch param[0] {
+	// TODO: Some more length checks required. Will probably be restructured before that.
+	switch param.Type {
 	case QryDay:
-		start, err := time.Parse("2006-01-02", param[1])
+		start, err := time.Parse("2006-01-02", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 0, 1)
 		sum, err = b.GetTaskBetween(task, start, end)
 	case QryBetween:
-		if len(param) < 3 {
+		if len(param.Elems) < 2 {
 			return nil, errors.Errorf("Invalid query parameter: %v", param)
 		}
-		start, err := time.Parse("2006-01-02", param[1])
+		start, err := time.Parse("2006-01-02", param.Elems[0])
 		if err != nil {
 			return nil, err
 		}
-		end, err := time.Parse("2006-01-02", param[2])
+		end, err := time.Parse("2006-01-02", param.Elems[1])
 		if err != nil {
 			return nil, err
 		}
 		sum, err = b.GetTaskBetween(task, start, end)
 	case QryMonth:
-		start, err := time.Parse("2006-01", param[1])
+		start, err := time.Parse("2006-01", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}
 		end := start.AddDate(0, 1, 0)
 		sum, err = b.GetTaskBetween(task, start, end)
 	case QryYear:
-		start, err := time.Parse("2006", param[1])
+		start, err := time.Parse("2006", param.Elems[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to construct query")
 		}

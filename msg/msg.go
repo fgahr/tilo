@@ -85,7 +85,7 @@ type Response struct {
 // Type representing summary of a single request.
 type Summary struct {
 	Task    string
-	Details QueryParam
+	Details Quantity
 	Total   time.Duration
 	Start   time.Time
 	End     time.Time
@@ -181,9 +181,8 @@ func (r *Response) AddQuerySummaries(sum []Summary) {
 	}
 	for _, s := range sum {
 		header := []string{s.Task}
-		for _, detail := range s.Details {
-			header = append(header, detail)
-		}
+		header = append(header, s.Details.Type)
+		header = append(header, s.Details.Elems...)
 		r.addToBody(line(strings.Join(header, " ")))
 		r.addToBody(line("First logged", formatTime(s.Start)))
 		r.addToBody(line("Last logged", formatTime(s.End)))

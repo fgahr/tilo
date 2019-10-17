@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	arg "github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/argparse/quantifier"
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"strconv"
@@ -12,27 +13,27 @@ import (
 
 const (
 	// Special "task" meaning show info for all tasks
-	TskAllTasks = ":all"
+	TskAllTasks = arg.ParamIdentifierPrefix + "all"
 	// Flags and params -- no modifiers
-	PrmToday     = ":today"
-	PrmYesterday = ":yesterday"
-	PrmEver      = ":ever"
-	PrmCombine   = ":combine" // Whether to combine times for all given tasks
+	PrmToday     = "today"
+	PrmYesterday = "yesterday"
+	PrmEver      = "ever"
+	// PrmCombine   = ":combine" // Whether to combine times for all given tasks
 	// Flags and params -- modifiers required
-	PrmDate      = ":day"
-	PrmMonth     = ":month"
-	PrmYear      = ":year"
-	PrmWeeksAgo  = ":weeks-ago"
-	PrmMonthsAgo = ":months-ago"
-	PrmYearsAgo  = ":years-ago"
-	PrmThisWeek  = ":this-week"
-	PrmLastWeek  = ":last-week"
-	PrmThisMonth = ":this-month"
-	PrmLastMonth = ":last-month"
-	PrmThisYear  = ":this-year"
-	PrmLastYear  = ":last-year"
-	PrmSince     = ":since"
-	PrmBetween   = ":between"
+	PrmDate      = "day"
+	PrmMonth     = "month"
+	PrmYear      = "year"
+	PrmWeeksAgo  = "weeks-ago"
+	PrmMonthsAgo = "months-ago"
+	PrmYearsAgo  = "years-ago"
+	PrmThisWeek  = "this-week"
+	PrmLastWeek  = "last-week"
+	PrmThisMonth = "this-month"
+	PrmLastMonth = "last-month"
+	PrmThisYear  = "this-year"
+	PrmLastYear  = "last-year"
+	PrmSince     = "since"
+	PrmBetween   = "between"
 	// Query details -- static
 	QryDay   = "day"
 	QryMonth = "month"
@@ -42,7 +43,15 @@ const (
 )
 
 type queryArgHandler struct {
-	quant map[string]arg.Quantifier
+	now    time.Time
+	params map[string]arg.Param
+}
+
+func (h *queryArgHandler) registerParam(param arg.Param) {
+	if _, ok := h.params[param.Name]; ok {
+		panic("Duplicate parameter name: " + param.Name)
+	}
+	h.params[param.Name] = param
 }
 
 func (h *queryArgHandler) HandleArgs(cmd *msg.Cmd, params []string) ([]string, error) {
@@ -50,13 +59,53 @@ func (h *queryArgHandler) HandleArgs(cmd *msg.Cmd, params []string) ([]string, e
 	return nil, nil
 }
 
-func newQueryArgHandler() *queryArgHandler {
-	h := queryArgHandler{}
-	h.quant["day"] = arg.ListQuantifierOf(arg.DateQuantifier{})
-	h.quant["month"] = arg.ListQuantifierOf(arg.MonthQuantifier{})
-	h.quant["year"] = arg.ListQuantifierOf(arg.YearQuantifier{})
-	// TODO
-	return nil
+func newQueryArgHandler(now time.Time) *queryArgHandler {
+	h := &queryArgHandler{now: now}
+	params := []arg.Param{
+		arg.Param{
+			Name:        PrmToday,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedDayOffset(now, 0),
+			Description: "Today's activity",
+		},
+		arg.Param{
+			Name:        PrmYesterday,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedDayOffset(now, -1),
+			Description: "Yesterday's activity",
+		},
+		// TODO: This week, last week
+		arg.Param{
+			Name:        PrmThisMonth,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedMonthOffset(now, 0),
+			Description: "This month's activity",
+		},
+		arg.Param{
+			Name:        PrmLastMonth,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedMonthOffset(now, -1),
+			Description: "Last month's activity",
+		},
+		arg.Param{
+			Name:        PrmThisYear,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedYearOffset(now, 0),
+			Description: "This year's activity",
+		},
+		arg.Param{
+			Name:        PrmLastYear,
+			RequiresArg: false,
+			Quantifier:  quantifier.FixedYearOffset(now, -1),
+			Description: "Last year's activity",
+		},
+	}
+
+	for _, param := range params {
+		h.registerParam(param)
+	}
+
+	return h
 }
 
 func parseQueryArgs(args []string, cmd *msg.Cmd) error {
@@ -68,7 +117,7 @@ func parseQueryArgs(args []string, cmd *msg.Cmd) error {
 	if params, err := getQueryParams(args, now); err != nil {
 		return errors.Wrap(err, "Unable to parse query arguments")
 	} else {
-		cmd.QueryParams = params
+		cmd.Quantities = params
 	}
 	return nil
 }
@@ -116,46 +165,44 @@ func getDetailParsers() []detailParser {
 }
 
 // Read the extra arguments for a query request.
-func getQueryParams(args []string, now time.Time) ([]msg.QueryParam, error) {
-	if len(args) == 0 {
-		return []msg.QueryParam{msg.QueryParam{QryDay, isoDate(time.Now())}}, nil
-	}
+func getQueryParams(args []string, now time.Time) ([]msg.Quantity, error) {
+	panic("Calling obsolete method getQueryParams")
 
-	var details []msg.QueryParam
-	for i := 0; i < len(args); i++ {
-		if args[i] == "" {
-			continue
-		}
+	// var details []msg.QueryParam
+	// for i := 0; i < len(args); i++ {
+	//	if args[i] == "" {
+	//		continue
+	//	}
 
-		arg := strings.Split(args[i], "=")[0]
-		p := findParser(arg)
-		if p == nil {
-			return details, errors.Errorf("No parser found for argument: %s", arg)
-		}
+	//	arg := strings.Split(args[i], "=")[0]
+	//	p := findParser(arg)
+	//	if p == nil {
+	//		return details, errors.Errorf("No parser found for argument: %s", arg)
+	//	}
 
-		if p.numberModifiers() > 0 {
-			modifiers := getModifiers(&i, args)
-			for len(modifiers) > 0 {
-				if len(modifiers) < p.numberModifiers() {
-					return details, errors.Errorf("Unbalanced modifiers: %s", args[i])
-				}
-				d, err := p.parse(now, modifiers[0:p.numberModifiers()]...)
-				if err != nil {
-					return details, err
-				}
-				modifiers = modifiers[p.numberModifiers():]
-				details = append(details, d)
-			}
-		} else {
-			d, err := p.parse(now)
-			if err != nil {
-				return details, err
-			}
-			details = append(details, d)
-		}
-	}
+	//	if p.numberModifiers() > 0 {
+	//		modifiers := getModifiers(&i, args)
+	//		for len(modifiers) > 0 {
+	//			if len(modifiers) < p.numberModifiers() {
+	//				return details, errors.Errorf("Unbalanced modifiers: %s", args[i])
+	//			}
+	//			d, err := p.parse(now, modifiers[0:p.numberModifiers()]...)
+	//			if err != nil {
+	//				return details, err
+	//			}
+	//			modifiers = modifiers[p.numberModifiers():]
+	//			details = append(details, d)
+	//		}
+	//	} else {
+	//		d, err := p.parse(now)
+	//		if err != nil {
+	//			return details, err
+	//		}
+	//		details = append(details, d)
+	//	}
+	// }
 
-	return details, nil
+	// return details, nil
 }
 
 func findParser(arg string) detailParser {
@@ -322,12 +369,13 @@ func invalidDate(s string) (msg.QueryParam, error) {
 
 // Whether to combine results for all tasks
 func shouldCombine(args []string) bool {
-	for i, arg := range args {
-		if arg == PrmCombine {
-			args[i] = ""
-			return true
-		}
-	}
+	// NOTE: Currently disabled.
+	// for i, arg := range args {
+	//	if arg == PrmCombine {
+	//		args[i] = ""
+	//		return true
+	//	}
+	// }
 	return false
 }
 

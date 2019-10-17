@@ -5,9 +5,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -194,8 +192,13 @@ func hasWhitespace(str string) bool {
 	return strings.ContainsAny(str, " \t\n")
 }
 
-func singleQuantity(t string, elems ...string) []msg.Quantity {
+func SingleQuantity(t string, elems ...string) []msg.Quantity {
 	return []msg.Quantity{msg.Quantity{Type: t, Elems: elems}}
+}
+
+type Quantifier interface {
+	Parse(str string) ([]msg.Quantity, error)
+	DescribeUsage() string
 }
 
 type Param struct {
@@ -264,130 +267,4 @@ func isParamIdentifier(str string) bool {
 
 func cleanParam(str string) string {
 	return strings.TrimLeft(strings.Split(str, "=")[0], ParamIdentifierPrefix)
-}
-
-type Quantifier interface {
-	Parse(str string) ([]msg.Quantity, error)
-	Describe() string
-}
-
-type ListQuantifier struct {
-	elem Quantifier
-}
-
-func ListQuantifierOf(elem Quantifier) Quantifier {
-	return ListQuantifier{elem}
-}
-
-func (lq ListQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	qnt := []msg.Quantity{}
-	for _, part := range strings.Split(str, ",") {
-		nxt, err := lq.elem.Parse(part)
-		if err != nil {
-			return qnt, err
-		}
-		qnt = append(qnt, nxt...)
-	}
-	return qnt, nil
-}
-
-func (lq ListQuantifier) Describe() string {
-	return fmt.Sprintf("%s,...", lq.elem.Describe())
-}
-
-type PairQuantifier struct {
-	elem Quantifier
-}
-
-func PairQuantifierOf(elem Quantifier) Quantifier {
-	return PairQuantifier{elem}
-}
-
-func (pq PairQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	qnt := []msg.Quantity{}
-	fields := strings.Split(str, ":")
-	if len(fields) != 2 {
-		return qnt, errors.New("Not a pair: " + str)
-	}
-	for _, part := range fields {
-		nxt, err := pq.elem.Parse(part)
-		if err != nil {
-			return qnt, err
-		}
-		qnt = append(qnt, nxt...)
-	}
-	return qnt, nil
-}
-
-func (pq PairQuantifier) Describe() string {
-	return fmt.Sprintf("%s:%[1]s", pq.elem.Describe())
-}
-
-type DateQuantifier struct{}
-
-func (dq DateQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	_, err := time.Parse("2006-01-02", str)
-	return singleQuantity("day", str), err
-}
-
-func (dq DateQuantifier) Describe() string {
-	return "YYYY-MM-DD"
-}
-
-type MonthQuantifier struct{}
-
-func (mq MonthQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	_, err := time.Parse("2006-01", str)
-	return singleQuantity("month", str), err
-}
-
-func (mq MonthQuantifier) Describe() string {
-	return "YYYY-MM"
-}
-
-type YearQuantifier struct{}
-
-func (yq YearQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	_, err := time.Parse("2006", str)
-	return singleQuantity("year", str), err
-}
-
-func (yq YearQuantifier) Describe() string {
-	return "YYYY"
-}
-
-type DaysAgoQuantifier struct {
-	Now time.Time
-}
-
-func (daq DaysAgoQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	days, err := strconv.Atoi(str)
-	return singleQuantity("day", isoDate(daq.Now.AddDate(0, 0, -days))), err
-}
-
-func (daq DaysAgoQuantifier) Describe() string {
-	return "N"
-}
-
-type MonthsAgoQuantifier struct {
-	Now time.Time
-}
-
-func (maq MonthsAgoQuantifier) Parse(str string) ([]msg.Quantity, error) {
-	months, err := strconv.Atoi(str)
-	return singleQuantity("month", isoMonth(maq.Now.AddDate(0, -months, 0))), err
-}
-
-func (maq MonthsAgoQuantifier) Describe() string {
-	return "N"
-}
-
-// Format as yyyy-MM-dd.
-func isoDate(t time.Time) string {
-	return t.Format("2006-01-02")
-}
-
-// Format as yyyy-MM.
-func isoMonth(t time.Time) string {
-	return t.Format("2006-01")
 }
