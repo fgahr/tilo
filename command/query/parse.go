@@ -145,8 +145,7 @@ func newQueryArgHandler(now time.Time) argparse.ArgHandler {
 		argparse.Param{
 			Name:        paramBetween,
 			RequiresArg: true,
-			Quantifier: quantifier.ListOf(
-				quantifier.TaggedPair(quantifier.TimeBetween, quantifier.SpecificDate())),
+			Quantifier:  quantifier.ListOf(quantifier.DynamicBetween()),
 			Description: "Activity between two dates",
 		},
 	}

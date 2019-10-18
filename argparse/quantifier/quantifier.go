@@ -263,6 +263,10 @@ func DynamicUntil(now time.Time) arg.Quantifier {
 	return sinceDate{now: now}
 }
 
+func DynamicBetween() arg.Quantifier {
+	return TaggedPair(TimeBetween, SpecificDate())
+}
+
 // Quantity describing the week (Mon-Sun) a number of weeks before now.
 func weeksAgo(now time.Time, weeks int) []msg.Quantity {
 	daysSinceLastMonday := (int(now.Weekday()) + 6) % 7
