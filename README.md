@@ -72,5 +72,5 @@ https://github.com/fgahr/tilo-systray
 - ...
 ## Other
 - Dynamic help system
-- Declarative argument parsing (partially implemented for config options)
+- Bash/Zsh completion of task names and parameters
 - Different output options (CSV, JSON, ...)
