@@ -6,6 +6,7 @@ import (
 	"github.com/fgahr/tilo/client"
 	_ "github.com/fgahr/tilo/command/abort"
 	_ "github.com/fgahr/tilo/command/current"
+	_ "github.com/fgahr/tilo/command/help"
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/query"

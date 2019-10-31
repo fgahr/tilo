@@ -236,7 +236,7 @@ func (c *Client) PrintMessage(message string) {
 }
 
 // Print a single command description.
-func (c *Client) PrintDescription(desc argparse.Description) {
+func (_ *Client) PrintDescription(desc argparse.Description) {
 	fmt.Fprintln(os.Stderr, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
 }
 
@@ -254,9 +254,20 @@ func operationDescriptions() []argparse.Description {
 	return descriptions
 }
 
+// Print the detailed help message for the cmd operation.
+func (cl *Client) PrintSingleOperationHelp(cmd string) error {
+	if op, ok := operations[cmd]; ok {
+		cl.PrintDescription(op.Describe())
+		return nil
+	} else {
+		return errors.Errorf("No such operation: %s", cmd)
+	}
+}
+
 // Print the help text for all available commands.
 func PrintAllOperationsHelp() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [command] <task(s)> <params>\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr,
+		"Usage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "Available commands")
 
 	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
