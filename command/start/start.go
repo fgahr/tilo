@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type StartOperation struct {
@@ -20,6 +19,10 @@ func (op StartOperation) Command() string {
 
 func (op StartOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithSingleTask().WithoutParams()
+}
+
+func (op StartOperation) Describe() argparse.Description {
+	return op.Parser().Describe("Start logging activity on a task")
 }
 
 func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -41,10 +44,6 @@ func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) err
 	srv.SetActiveTask(taskName)
 	resp.AddCurrentTask(srv.CurrentTask)
 	return srv.Answer(req, resp)
-}
-
-func (op StartOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

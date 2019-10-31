@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type ShutdownOperation struct {
@@ -20,6 +19,10 @@ func (op ShutdownOperation) Command() string {
 
 func (op ShutdownOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op ShutdownOperation) Describe() argparse.Description {
+	return op.Parser().Describe("Request server shutdown")
 }
 
 func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -44,10 +47,6 @@ func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) 
 	}
 	resp.AddShutdownMessage()
 	return srv.Answer(req, resp)
-}
-
-func (op ShutdownOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

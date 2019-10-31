@@ -85,12 +85,25 @@ type ArgHandler interface {
 	// Parse the params and modify cmd accordingly.
 	// Returns unused arguments and a possible error.
 	HandleArgs(cmd *msg.Cmd, args []string) ([]string, error)
+	// Whether the argument handler takes any parameters.
+	TakesParameters() bool
 }
 
 type noArgHandler struct{}
 
 func (h noArgHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) {
 	return args, nil
+}
+
+func (h noArgHandler) TakesParameters() bool {
+	return false
+}
+
+type Description struct {
+	Cmd    string // Name of the command
+	First  string // The first class of arguments, if any
+	Second string // The second class of arguments, if any
+	What   string // What the command does
 }
 
 // TODO: Move methods to builder?
@@ -102,6 +115,14 @@ type Parser struct {
 
 func CommandParser(command string) *Parser {
 	return &Parser{command: command, taskHandler: nil, argHandler: nil}
+}
+
+func (p *Parser) Describe(what string) Description {
+	paramDescription := ""
+	if p.argHandler.TakesParameters() {
+		paramDescription = "[parameters]"
+	}
+	return Description{p.command, p.taskHandler.describe(), paramDescription, what}
 }
 
 func (p *Parser) WithoutTask() *Parser {
@@ -248,6 +269,10 @@ func (p paramHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) 
 	}
 	cmd.Quantities = quant
 	return unused, nil
+}
+
+func (h paramHandler) TakesParameters() bool {
+	return len(h.params) > 0
 }
 
 func HandlerForParams(params []Param) ArgHandler {

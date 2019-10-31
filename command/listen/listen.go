@@ -23,6 +23,10 @@ func (op ListenOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
+func (op ListenOperation) Describe() argparse.Description {
+	return op.Parser().Describe("Listen for and print server notifications")
+}
+
 func (op ListenOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
 	cl.SendToServer(cmd)
@@ -47,10 +51,6 @@ func (op ListenOperation) ServerExec(srv *server.Server, req *server.Request) er
 		defer listener.Notify(server.TaskNotification(srv.CurrentTask))
 	}
 	return srv.Answer(req, resp)
-}
-
-func (op ListenOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

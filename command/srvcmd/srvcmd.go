@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 const (
@@ -29,6 +28,10 @@ func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error)
 		return args, errors.New("Not a known server command: " + args[0])
 	}
 	return args[1:], nil
+}
+
+func (h *CommandHandler) TakesParameters() bool {
+	return true
 }
 
 func isKnownCommand(str string) bool {
@@ -54,6 +57,14 @@ func (op ServerOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
+func (op ServerOperation) Describe() argparse.Description {
+	return argparse.Description{
+		Cmd:    op.Command(),
+		Second: "start|run",
+		What:   "Start a server in the background/foreground",
+	}
+}
+
 func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {
 	switch op.ch.command {
 	case START:
@@ -69,10 +80,6 @@ func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) er
 	resp := msg.Response{}
 	resp.SetError(errors.New("Not a valid server operation:" + op.Command()))
 	return srv.Answer(req, resp)
-}
-
-func (op ServerOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

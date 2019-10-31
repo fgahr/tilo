@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type StopOperation struct {
@@ -20,6 +19,10 @@ func (op StopOperation) Command() string {
 
 func (op StopOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op StopOperation) Describe() argparse.Description {
+	return op.Parser().Describe("Stop and save the currently active task")
 }
 
 func (op StopOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -40,10 +43,6 @@ func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) erro
 		resp.SetError(errors.New("No active task"))
 	}
 	return srv.Answer(req, resp)
-}
-
-func (op StopOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

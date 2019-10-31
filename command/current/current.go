@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type CurrentOperation struct {
@@ -20,6 +19,10 @@ func (op CurrentOperation) Command() string {
 
 func (op CurrentOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op CurrentOperation) Describe() argparse.Description {
+	return op.Parser().Describe("See which task is currently active")
 }
 
 func (op CurrentOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -36,10 +39,6 @@ func (op CurrentOperation) ServerExec(srv *server.Server, req *server.Request) e
 		resp.SetError(errors.New("No active task"))
 	}
 	return srv.Answer(req, resp)
-}
-
-func (op CurrentOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

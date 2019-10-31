@@ -74,3 +74,4 @@ https://github.com/fgahr/tilo-systray
 - Dynamic help system
 - Bash/Zsh completion of task names and parameters
 - Different output options (CSV, JSON, ...)
+- Support for TCP connections, remote server

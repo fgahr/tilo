@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"github.com/fgahr/tilo/client"
-	"github.com/fgahr/tilo/command"
 	_ "github.com/fgahr/tilo/command/abort"
 	_ "github.com/fgahr/tilo/command/current"
 	_ "github.com/fgahr/tilo/command/listen"
@@ -23,12 +22,12 @@ import (
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		command.PrintAllOperationsHelp()
+		client.PrintAllOperationsHelp()
 		os.Exit(1)
 	}
 
 	if args[0] == "-h" || args[0] == "--help" {
-		command.PrintAllOperationsHelp()
+		client.PrintAllOperationsHelp()
 		os.Exit(0)
 	}
 

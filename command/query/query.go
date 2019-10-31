@@ -9,7 +9,6 @@ import (
 	"github.com/fgahr/tilo/server"
 	"github.com/fgahr/tilo/server/backend"
 	"github.com/pkg/errors"
-	"io"
 	"time"
 )
 
@@ -23,6 +22,10 @@ func (op QueryOperation) Command() string {
 
 func (op QueryOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler(time.Now()))
+}
+
+func (op QueryOperation) Describe() argparse.Description {
+	return op.Parser().Describe("Make enquiries about prior activity")
 }
 
 func (op QueryOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -100,10 +103,6 @@ func queryBackend(b backend.Backend, task string, param msg.Quantity) ([]msg.Sum
 		sum[i].Details = param
 	}
 	return sum, nil
-}
-
-func (op QueryOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

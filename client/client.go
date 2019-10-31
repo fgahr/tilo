@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sort"
 	"text/tabwriter"
 	"time"
 )
@@ -19,12 +20,12 @@ import (
 var operations = make(map[string]ClientOperation)
 
 type ClientOperation interface {
-	// Execute client-side behaviour based on args
+	// Execute client-side behaviour based on args.
 	ClientExec(cl *Client, cmd msg.Cmd) error
-	// Command line argument parser for this operation
+	// Command line argument parser for this operation.
 	Parser() *argparse.Parser
-	// Write the operation's usage information to the given writer
-	PrintUsage(w io.Writer)
+	// Describe usage for this operation.
+	Describe() argparse.Description
 }
 
 // Make a client-side operation available.
@@ -42,11 +43,12 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	if op == nil {
 		panic("No such command: " + command)
 	}
+
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
 		// TODO: Wrap with operation's usage etc.
 		cl.PrintMessage(err.Error())
-		op.PrintUsage(os.Stderr)
+		cl.PrintDescription(op.Describe())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
 		cl.PrintMessage(err.Error())
@@ -231,6 +233,37 @@ func (c *Client) RunServer() {
 // Print a message for the user.
 func (c *Client) PrintMessage(message string) {
 	fmt.Fprintln(c.msgout, message)
+}
+
+// Print a single command description.
+func (c *Client) PrintDescription(desc argparse.Description) {
+	fmt.Fprintln(os.Stderr, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
+}
+
+func operationDescriptions() []argparse.Description {
+	var descriptions []argparse.Description
+	for _, op := range operations {
+		descriptions = append(descriptions, op.Describe())
+	}
+	byCmdAsc := func(i, j int) bool {
+		return descriptions[i].Cmd < descriptions[j].Cmd
+	}
+	sort.Slice(descriptions, byCmdAsc)
+
+	return descriptions
+}
+
+// Print the help text for all available commands.
+func PrintAllOperationsHelp() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [command] <task(s)> <params>\n", os.Args[0])
+	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
+
+	fmt.Fprint(w, "    command\ttask(s)\tparameters\t\n")
+	fmt.Fprint(w, "----\t\t\t\n")
+	for _, descr := range operationDescriptions() {
+		fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", descr.Cmd, descr.First, descr.Second, descr.What)
+	}
+	w.Flush()
 }
 
 // Print an error message for the user.
