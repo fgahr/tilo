@@ -51,7 +51,7 @@ func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, e
 }
 
 func (h singleTaskHandler) describe() string {
-	return "task"
+	return "[task]"
 }
 
 type multiTaskHandler struct{}
@@ -78,7 +78,7 @@ func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, er
 }
 
 func (h multiTaskHandler) describe() string {
-	return AllTasks + "|task,..."
+	return "[task,..]"
 }
 
 type ArgHandler interface {

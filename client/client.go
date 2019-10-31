@@ -240,6 +240,7 @@ func (c *Client) PrintDescription(desc argparse.Description) {
 	fmt.Fprintln(os.Stderr, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
 }
 
+// Gather descriptions of operations in alphabetical order.
 func operationDescriptions() []argparse.Description {
 	var descriptions []argparse.Description
 	for _, op := range operations {
@@ -255,11 +256,10 @@ func operationDescriptions() []argparse.Description {
 
 // Print the help text for all available commands.
 func PrintAllOperationsHelp() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [command] <task(s)> <params>\n", os.Args[0])
-	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
+	fmt.Fprintf(os.Stderr, "Usage: %s [command] <task(s)> <params>\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "Available commands")
 
-	fmt.Fprint(w, "    command\ttask(s)\tparameters\t\n")
-	fmt.Fprint(w, "----\t\t\t\n")
+	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
 	for _, descr := range operationDescriptions() {
 		fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", descr.Cmd, descr.First, descr.Second, descr.What)
 	}
