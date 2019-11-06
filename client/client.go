@@ -46,7 +46,6 @@ func Dispatch(conf *config.Opts, args []string) bool {
 
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		// TODO: Wrap with operation's usage etc.
 		cl.PrintMessage(err.Error())
 		cl.PrintDescription(op.Describe())
 		return false
