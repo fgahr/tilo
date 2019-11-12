@@ -22,15 +22,6 @@ import (
 // Initiate server or client operation based on given arguments.
 func main() {
 	args := os.Args[1:]
-	if len(args) == 0 {
-		client.PrintAllOperationsHelp()
-		os.Exit(1)
-	}
-
-	if args[0] == "-h" || args[0] == "--help" {
-		client.PrintAllOperationsHelp()
-		os.Exit(0)
-	}
 
 	conf, restArgs, err := config.GetConfig(args, os.Environ())
 	if err != nil {

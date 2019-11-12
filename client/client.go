@@ -38,19 +38,23 @@ func RegisterOperation(name string, operation ClientOperation) {
 // Execute the appropriate action based on the configuration and the arguments.
 func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
-		panic("Empty argument list")
+		showUsageAndDie(errors.New("No command given"))
 	}
-	cl := newClient(conf)
+
+	if args[0] == "-h" || args[0] == "--help" {
+		printAllOperationsHelp(os.Stderr)
+		os.Exit(0)
+	}
+
 	command := args[0]
 	op := operations[command]
 	if op == nil {
-		cl.PrintError(errors.Errorf("No such command: %s", command))
-		PrintAllOperationsHelp()
-		os.Exit(2)
+		showUsageAndDie(errors.Errorf("No such command: %s", command))
 	}
 
+	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		cl.PrintMessage(err.Error())
+		cl.PrintError(err)
 		cl.PrintShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
@@ -260,10 +264,16 @@ func operationDescriptions() []argparse.Description {
 	return descriptions
 }
 
+// Whether a command with the given name exists.
+func (c *Client) CommandExists(cmd string) bool {
+	_, ok := operations[cmd]
+	return ok
+}
+
 // Print the detailed help message for the cmd operation.
-func (cl *Client) PrintSingleOperationHelp(cmd string) error {
+func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		cl.PrintShortDescription(op.DescribeShort())
+		c.PrintShortDescription(op.DescribeShort())
 		return nil
 	} else {
 		return errors.Errorf("No such operation: %s", cmd)
@@ -271,10 +281,15 @@ func (cl *Client) PrintSingleOperationHelp(cmd string) error {
 }
 
 // Print the help text for all available commands.
-func PrintAllOperationsHelp() {
-	fmt.Fprintf(os.Stderr,
+func (c *Client) PrintAllOperationsHelp() {
+	printAllOperationsHelp(c.msgout)
+}
+
+// Print the help text for all available commands.
+func printAllOperationsHelp(out io.Writer) {
+	fmt.Fprintf(out,
 		"\nUsage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
-	fmt.Fprintln(os.Stderr, "Available commands")
+	fmt.Fprintln(out, "Available commands")
 
 	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
 	for _, descr := range operationDescriptions() {
@@ -285,5 +300,17 @@ func PrintAllOperationsHelp() {
 
 // Print an error message for the user.
 func (c *Client) PrintError(err error) {
-	fmt.Fprintln(c.msgout, err.Error())
+	printError(err, c.msgout)
+}
+
+// Print an error message for the user.
+func printError(err error, w io.Writer) {
+	fmt.Fprintln(w, err.Error())
+}
+
+// Print the error, the usage message, then exit with error status.
+func showUsageAndDie(err error) {
+	printError(err, os.Stderr)
+	printAllOperationsHelp(os.Stderr)
+	os.Exit(2)
 }

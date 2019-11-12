@@ -50,12 +50,14 @@ func (op HelpOperation) DescribeShort() argparse.Description {
 
 func (op HelpOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	if op.ch.specific {
-		if err := cl.PrintSingleOperationHelp(op.ch.command); err != nil {
-			cl.PrintError(err)
-			client.PrintAllOperationsHelp()
+		if cl.CommandExists(op.ch.command) {
+			cl.PrintSingleOperationHelp(op.ch.command)
+		} else {
+			cl.PrintError(errors.Errorf("No such command: %s", op.ch.command))
+			cl.PrintAllOperationsHelp()
 		}
 	} else {
-		client.PrintAllOperationsHelp()
+		cl.PrintAllOperationsHelp()
 	}
 	return nil
 }
