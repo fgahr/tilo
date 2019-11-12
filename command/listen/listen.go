@@ -23,7 +23,7 @@ func (op ListenOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op ListenOperation) Describe() argparse.Description {
+func (op ListenOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Listen for and print server notifications")
 }
 

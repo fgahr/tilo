@@ -24,7 +24,7 @@ func (op QueryOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler(time.Now()))
 }
 
-func (op QueryOperation) Describe() argparse.Description {
+func (op QueryOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Make enquiries about prior activity")
 }
 

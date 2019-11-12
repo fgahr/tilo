@@ -26,7 +26,7 @@ type ClientOperation interface {
 	// Command line argument parser for this operation.
 	Parser() *argparse.Parser
 	// Describe usage for this operation.
-	Describe() argparse.Description
+	DescribeShort() argparse.Description
 }
 
 // Make a client-side operation available.
@@ -40,16 +40,18 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
 		panic("Empty argument list")
 	}
+	cl := newClient(conf)
 	command := args[0]
 	op := operations[command]
 	if op == nil {
-		panic("No such command: " + command)
+		cl.PrintError(errors.Errorf("No such command: %s", command))
+		PrintAllOperationsHelp()
+		os.Exit(2)
 	}
 
-	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
 		cl.PrintMessage(err.Error())
-		cl.PrintShortDescription(op.Describe())
+		cl.PrintShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
 		cl.PrintMessage(err.Error())
@@ -248,7 +250,7 @@ func (_ *Client) PrintShortDescription(desc argparse.Description) {
 func operationDescriptions() []argparse.Description {
 	var descriptions []argparse.Description
 	for _, op := range operations {
-		descriptions = append(descriptions, op.Describe())
+		descriptions = append(descriptions, op.DescribeShort())
 	}
 	byCmdAsc := func(i, j int) bool {
 		return descriptions[i].Cmd < descriptions[j].Cmd
@@ -261,7 +263,7 @@ func operationDescriptions() []argparse.Description {
 // Print the detailed help message for the cmd operation.
 func (cl *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		cl.PrintShortDescription(op.Describe())
+		cl.PrintShortDescription(op.DescribeShort())
 		return nil
 	} else {
 		return errors.Errorf("No such operation: %s", cmd)

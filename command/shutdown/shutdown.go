@@ -21,7 +21,7 @@ func (op ShutdownOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op ShutdownOperation) Describe() argparse.Description {
+func (op ShutdownOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Request server shutdown")
 }
 

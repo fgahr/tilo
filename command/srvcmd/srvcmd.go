@@ -57,7 +57,7 @@ func (op ServerOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
-func (op ServerOperation) Describe() argparse.Description {
+func (op ServerOperation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
 		First: "[start|run]",

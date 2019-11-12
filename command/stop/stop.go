@@ -21,7 +21,7 @@ func (op StopOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op StopOperation) Describe() argparse.Description {
+func (op StopOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Stop and save the currently active task")
 }
 

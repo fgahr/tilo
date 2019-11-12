@@ -21,7 +21,7 @@ func (op StartOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithSingleTask().WithoutParams()
 }
 
-func (op StartOperation) Describe() argparse.Description {
+func (op StartOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Start logging activity on a task")
 }
 

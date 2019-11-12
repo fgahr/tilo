@@ -40,7 +40,7 @@ func (op HelpOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
-func (op HelpOperation) Describe() argparse.Description {
+func (op HelpOperation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
 		First: "[command]",

@@ -23,7 +23,7 @@ func (op PingOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op PingOperation) Describe() argparse.Description {
+func (op PingOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Ping the server")
 }
 

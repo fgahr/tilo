@@ -21,7 +21,7 @@ func (op CurrentOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op CurrentOperation) Describe() argparse.Description {
+func (op CurrentOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("See which task is currently active")
 }
 
