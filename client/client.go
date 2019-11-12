@@ -27,6 +27,8 @@ type ClientOperation interface {
 	Parser() *argparse.Parser
 	// Describe usage for this operation.
 	DescribeShort() argparse.Description
+	// Header and footer for this operation's help message
+	HelpFraming() (string, string)
 }
 
 // Make a client-side operation available.
@@ -245,9 +247,9 @@ func (c *Client) PrintMessage(message string) {
 	fmt.Fprintln(c.msgout, message)
 }
 
-// Print a single command description.
-func (_ *Client) PrintShortDescription(desc argparse.Description) {
-	fmt.Fprintln(os.Stderr, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
+// Print a short command description to the user.
+func (c *Client) PrintShortDescription(desc argparse.Description) {
+	fmt.Fprintln(c.msgout, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
 }
 
 // Gather descriptions of operations in alphabetical order.
@@ -273,7 +275,31 @@ func (c *Client) CommandExists(cmd string) bool {
 // Print the detailed help message for the cmd operation.
 func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		c.PrintShortDescription(op.DescribeShort())
+		header, footer := op.HelpFraming()
+		// Summary
+		sdesc := op.DescribeShort()
+		fmt.Fprintln(c.msgout, "Usage:", os.Args[0], sdesc.Cmd, sdesc.First, sdesc.Second)
+		// Header
+		fmt.Fprintf(c.msgout, "\n%s\n", header)
+		// Describe required task name(s), if any
+		if tdesc := op.Parser().TaskDescription(); tdesc != "" {
+			fmt.Fprintf(c.msgout, "\nRequired task information\n\t%s\n", tdesc)
+		}
+		// Parameter description
+		if pdesc := op.Parser().ParamDescription(); len(pdesc) > 0 {
+			fmt.Fprintf(c.msgout, "\nPossible parameters\n")
+			w := tabwriter.NewWriter(c.msgout, 4, 4, 2, ' ', 0)
+			for _, par := range pdesc {
+				fmt.Fprintf(w, "    %s\t%s\t%s\n",
+					par.ParamName, par.ParamValues, par.ParamExplanation)
+			}
+			w.Flush()
+			fmt.Fprintln(c.msgout)
+		}
+		// Footer
+		if footer != "" {
+			fmt.Fprintln(c.msgout, footer)
+		}
 		return nil
 	} else {
 		return errors.Errorf("No such operation: %s", cmd)
@@ -291,7 +317,7 @@ func printAllOperationsHelp(out io.Writer) {
 		"\nUsage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
 	fmt.Fprintln(out, "Available commands")
 
-	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)
+	w := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
 	for _, descr := range operationDescriptions() {
 		fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", descr.Cmd, descr.First, descr.Second, descr.What)
 	}

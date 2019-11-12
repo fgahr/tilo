@@ -28,6 +28,16 @@ func (h *CommandHandler) TakesParameters() bool {
 	return true
 }
 
+func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
+	return []argparse.ParamDescription{
+		argparse.ParamDescription{
+			ParamName:        "",
+			ParamValues:      "<command>",
+			ParamExplanation: "If given, the command to examine more closely",
+		},
+	}
+}
+
 type HelpOperation struct {
 	ch *CommandHandler
 }
@@ -43,9 +53,15 @@ func (op HelpOperation) Parser() *argparse.Parser {
 func (op HelpOperation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
-		First: "[command]",
-		What:  "View detailed help for a command",
+		First: "<command>",
+		What:  "Describe program or detailed usage of a command",
 	}
+}
+
+func (op HelpOperation) HelpFraming() (string, string) {
+	header := "Describe usage of a command"
+	footer := "You already know how to use this command :-)"
+	return header, footer
 }
 
 func (op HelpOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
