@@ -34,6 +34,19 @@ func (h *CommandHandler) TakesParameters() bool {
 	return true
 }
 
+func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
+	return []argparse.ParamDescription{
+		argparse.ParamDescription{
+			ParamName:        "start",
+			ParamExplanation: "Start a server in the background, suppressing output",
+		},
+		argparse.ParamDescription{
+			ParamName:        "run",
+			ParamExplanation: "Start a server in the foreground, printing log messages",
+		},
+	}
+}
+
 func isKnownCommand(str string) bool {
 	switch str {
 	case RUN:
@@ -63,6 +76,12 @@ func (op ServerOperation) DescribeShort() argparse.Description {
 		First: "[start|run]",
 		What:  "Start a server in the background/foreground",
 	}
+}
+
+func (op ServerOperation) HelpFraming() (string, string) {
+	header := "Start a server process"
+	footer := "If the server is not running at the time, several commands may spawn it as a background process"
+	return header, footer
 }
 
 func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {

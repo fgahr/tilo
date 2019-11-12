@@ -294,11 +294,10 @@ func (c *Client) PrintSingleOperationHelp(cmd string) error {
 					par.ParamName, par.ParamValues, par.ParamExplanation)
 			}
 			w.Flush()
-			fmt.Fprintln(c.msgout)
 		}
 		// Footer
 		if footer != "" {
-			fmt.Fprintln(c.msgout, footer)
+			fmt.Fprintf(c.msgout, "\n%s\n", footer)
 		}
 		return nil
 	} else {

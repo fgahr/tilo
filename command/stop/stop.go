@@ -25,6 +25,12 @@ func (op StopOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Stop and save the currently active task")
 }
 
+func (op StopOperation) HelpFraming() (string, string) {
+	header := "Stop the currently active task, logging the activity"
+	footer := "To stop a task without logging, use the `abort` command"
+	return header, footer
+}
+
 func (op StopOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to stop the current task")

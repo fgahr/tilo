@@ -25,6 +25,14 @@ func (op StartOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Start logging activity on a task")
 }
 
+func (op StartOperation) HelpFraming() (string, string) {
+	header := "Set the currently active task, i.e. start logging time. If a task is active, save it first"
+	footer := "To avoid saving the previous task, use the `abort` command first\n\n" +
+		"This command can also be used from time to time to avoid losing activity accidentally\n" +
+		"In this case the `current` command will only show elapsed time since the last 'save'"
+	return header, footer
+}
+
 func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
 	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.Tasks[0])

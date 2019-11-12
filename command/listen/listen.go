@@ -27,6 +27,12 @@ func (op ListenOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Listen for and print server notifications")
 }
 
+func (op ListenOperation) HelpFraming() (string, string) {
+	header := "Connect to the server and listen for notifications. Print whatever is received"
+	footer := "Use this mode for scripting purposes or as sample output when developing listeners in other languages"
+	return header, footer
+}
+
 func (op ListenOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.EstablishConnection()
 	cl.SendToServer(cmd)

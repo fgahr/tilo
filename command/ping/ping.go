@@ -27,6 +27,12 @@ func (op PingOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Ping the server")
 }
 
+func (op PingOperation) HelpFraming() (string, string) {
+	header := "Request a reply from the server, measure the time between sending and receiving"
+	footer := "Use this command to test server responsiveness"
+	return header, footer
+}
+
 func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	// TODO: Should ping start a server if none is running?
 	cl.EstablishConnection()
