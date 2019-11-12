@@ -25,7 +25,7 @@ func (op StartOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Start logging activity on a task")
 }
 
-func (op StartOperation) HelpFraming() (string, string) {
+func (op StartOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Set the currently active task, i.e. start logging time. If a task is active, save it first"
 	footer := "To avoid saving the previous task, use the `abort` command first\n\n" +
 		"This command can also be used from time to time to avoid losing activity accidentally\n" +

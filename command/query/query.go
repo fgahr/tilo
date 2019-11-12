@@ -28,7 +28,7 @@ func (op QueryOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Make enquiries about prior activity")
 }
 
-func (op QueryOperation) HelpFraming() (string, string) {
+func (op QueryOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Get information about recorded activity"
 	footer := "Examples\n" +
 		"    tilo query :all :this-week                    # This week's activity across all tasks\n" +

@@ -58,7 +58,7 @@ func (op HelpOperation) DescribeShort() argparse.Description {
 	}
 }
 
-func (op HelpOperation) HelpFraming() (string, string) {
+func (op HelpOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Describe usage of a command"
 	footer := "You already know how to use this command :-)"
 	return header, footer
@@ -69,8 +69,8 @@ func (op HelpOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 		if cl.CommandExists(op.ch.command) {
 			cl.PrintSingleOperationHelp(op.ch.command)
 		} else {
-			cl.PrintError(errors.Errorf("No such command: %s", op.ch.command))
 			cl.PrintAllOperationsHelp()
+			return errors.Errorf("\nNo such command: %s", op.ch.command)
 		}
 	} else {
 		cl.PrintAllOperationsHelp()

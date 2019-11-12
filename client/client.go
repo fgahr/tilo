@@ -28,7 +28,7 @@ type ClientOperation interface {
 	// Describe usage for this operation.
 	DescribeShort() argparse.Description
 	// Header and footer for this operation's help message
-	HelpFraming() (string, string)
+	HelpHeaderAndFooter() (string, string)
 }
 
 // Make a client-side operation available.
@@ -49,8 +49,8 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	}
 
 	command := args[0]
-	op := operations[command]
-	if op == nil {
+	op, ok := operations[command]
+	if !ok {
 		showUsageAndDie(errors.Errorf("No such command: %s", command))
 	}
 
@@ -275,7 +275,7 @@ func (c *Client) CommandExists(cmd string) bool {
 // Print the detailed help message for the cmd operation.
 func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		header, footer := op.HelpFraming()
+		header, footer := op.HelpHeaderAndFooter()
 		// Summary
 		sdesc := op.DescribeShort()
 		fmt.Fprintln(c.msgout, "Usage:", os.Args[0], sdesc.Cmd, sdesc.First, sdesc.Second)

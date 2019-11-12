@@ -78,7 +78,7 @@ func (op ServerOperation) DescribeShort() argparse.Description {
 	}
 }
 
-func (op ServerOperation) HelpFraming() (string, string) {
+func (op ServerOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Start a server process"
 	footer := "If the server is not running at the time, several commands may spawn it as a background process"
 	return header, footer

@@ -25,7 +25,7 @@ func (op StopOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Stop and save the currently active task")
 }
 
-func (op StopOperation) HelpFraming() (string, string) {
+func (op StopOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Stop the currently active task, logging the activity"
 	footer := "To stop a task without logging, use the `abort` command"
 	return header, footer

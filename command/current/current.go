@@ -25,7 +25,7 @@ func (op CurrentOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("See which task is currently active")
 }
 
-func (op CurrentOperation) HelpFraming() (string, string) {
+func (op CurrentOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Determine the currently active task, if any"
 	footer := "Exits with non-zero status if no task is active"
 	return header, footer

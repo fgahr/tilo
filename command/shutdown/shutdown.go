@@ -25,7 +25,7 @@ func (op ShutdownOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Request server shutdown")
 }
 
-func (op ShutdownOperation) HelpFraming() (string, string) {
+func (op ShutdownOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Request server shutdown"
 	return header, ""
 }

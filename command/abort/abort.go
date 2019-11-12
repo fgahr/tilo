@@ -25,7 +25,7 @@ func (op AbortOperation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Abort the currently active task without saving")
 }
 
-func (op AbortOperation) HelpFraming() (string, string) {
+func (op AbortOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Abort the currently active task without logging the time"
 	footer := "Use the `stop` command to log the time of a task"
 	return header, footer
