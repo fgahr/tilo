@@ -19,6 +19,7 @@ import (
 
 var operations = make(map[string]ClientOperation)
 
+// Common interface for client-side operations.
 type ClientOperation interface {
 	// Execute client-side behaviour based on args.
 	ClientExec(cl *Client, cmd msg.Cmd) error
@@ -29,6 +30,7 @@ type ClientOperation interface {
 }
 
 // Make a client-side operation available.
+// This function is called indirectly from other packages' init() functions.
 func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
 }
@@ -47,7 +49,7 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
 		cl.PrintMessage(err.Error())
-		cl.PrintDescription(op.Describe())
+		cl.PrintShortDescription(op.Describe())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
 		cl.PrintMessage(err.Error())
@@ -79,10 +81,12 @@ func newClient(conf *config.Opts) *Client {
 	return &Client{conf: conf, msgout: os.Stderr}
 }
 
+// Whether the client has encountered an error.
 func (c *Client) Failed() bool {
 	return c.err != nil
 }
 
+// Whether the client is connected.
 func (c *Client) Connected() bool {
 	return c.conn != nil
 }
@@ -152,6 +156,7 @@ func (c *Client) ReceiveFromServer() msg.Response {
 	return resp
 }
 
+// Show the response to the user.
 func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
@@ -235,7 +240,7 @@ func (c *Client) PrintMessage(message string) {
 }
 
 // Print a single command description.
-func (_ *Client) PrintDescription(desc argparse.Description) {
+func (_ *Client) PrintShortDescription(desc argparse.Description) {
 	fmt.Fprintln(os.Stderr, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
 }
 
@@ -256,7 +261,7 @@ func operationDescriptions() []argparse.Description {
 // Print the detailed help message for the cmd operation.
 func (cl *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		cl.PrintDescription(op.Describe())
+		cl.PrintShortDescription(op.Describe())
 		return nil
 	} else {
 		return errors.Errorf("No such operation: %s", cmd)
@@ -266,7 +271,7 @@ func (cl *Client) PrintSingleOperationHelp(cmd string) error {
 // Print the help text for all available commands.
 func PrintAllOperationsHelp() {
 	fmt.Fprintf(os.Stderr,
-		"Usage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
+		"\nUsage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "Available commands")
 
 	w := tabwriter.NewWriter(os.Stderr, 4, 4, 2, ' ', 0)

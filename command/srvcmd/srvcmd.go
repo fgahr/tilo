@@ -60,7 +60,7 @@ func (op ServerOperation) Parser() *argparse.Parser {
 func (op ServerOperation) Describe() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
-		First: "start|run",
+		First: "[start|run]",
 		What:  "Start a server in the background/foreground",
 	}
 }
