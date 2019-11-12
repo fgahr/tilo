@@ -12,22 +12,27 @@ import (
 	"io"
 	"net"
 	"os"
+	"sort"
 	"text/tabwriter"
 	"time"
 )
 
 var operations = make(map[string]ClientOperation)
 
+// Common interface for client-side operations.
 type ClientOperation interface {
-	// Execute client-side behaviour based on args
+	// Execute client-side behaviour based on args.
 	ClientExec(cl *Client, cmd msg.Cmd) error
-	// Command line argument parser for this operation
+	// Command line argument parser for this operation.
 	Parser() *argparse.Parser
-	// Write the operation's usage information to the given writer
-	PrintUsage(w io.Writer)
+	// Describe usage for this operation.
+	DescribeShort() argparse.Description
+	// Header and footer for this operation's help message
+	HelpHeaderAndFooter() (string, string)
 }
 
 // Make a client-side operation available.
+// This function is called indirectly from other packages' init() functions.
 func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
 }
@@ -35,18 +40,24 @@ func RegisterOperation(name string, operation ClientOperation) {
 // Execute the appropriate action based on the configuration and the arguments.
 func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
-		panic("Empty argument list")
+		showUsageAndDie(errors.New("No command given"))
 	}
+
+	if args[0] == "-h" || args[0] == "--help" {
+		printAllOperationsHelp(os.Stderr)
+		os.Exit(0)
+	}
+
 	command := args[0]
-	op := operations[command]
-	if op == nil {
-		panic("No such command: " + command)
+	op, ok := operations[command]
+	if !ok {
+		showUsageAndDie(errors.Errorf("No such command: %s", command))
 	}
+
 	cl := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		// TODO: Wrap with operation's usage etc.
-		cl.PrintMessage(err.Error())
-		op.PrintUsage(os.Stderr)
+		cl.PrintError(err)
+		cl.PrintShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
 		cl.PrintMessage(err.Error())
@@ -78,10 +89,12 @@ func newClient(conf *config.Opts) *Client {
 	return &Client{conf: conf, msgout: os.Stderr}
 }
 
+// Whether the client has encountered an error.
 func (c *Client) Failed() bool {
 	return c.err != nil
 }
 
+// Whether the client is connected.
 func (c *Client) Connected() bool {
 	return c.conn != nil
 }
@@ -151,6 +164,7 @@ func (c *Client) ReceiveFromServer() msg.Response {
 	return resp
 }
 
+// Show the response to the user.
 func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
@@ -233,7 +247,95 @@ func (c *Client) PrintMessage(message string) {
 	fmt.Fprintln(c.msgout, message)
 }
 
+// Print a short command description to the user.
+func (c *Client) PrintShortDescription(desc argparse.Description) {
+	fmt.Fprintln(c.msgout, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
+}
+
+// Gather descriptions of operations in alphabetical order.
+func operationDescriptions() []argparse.Description {
+	var descriptions []argparse.Description
+	for _, op := range operations {
+		descriptions = append(descriptions, op.DescribeShort())
+	}
+	byCmdAsc := func(i, j int) bool {
+		return descriptions[i].Cmd < descriptions[j].Cmd
+	}
+	sort.Slice(descriptions, byCmdAsc)
+
+	return descriptions
+}
+
+// Whether a command with the given name exists.
+func (c *Client) CommandExists(cmd string) bool {
+	_, ok := operations[cmd]
+	return ok
+}
+
+// Print the detailed help message for the cmd operation.
+func (c *Client) PrintSingleOperationHelp(cmd string) error {
+	if op, ok := operations[cmd]; ok {
+		header, footer := op.HelpHeaderAndFooter()
+		// Summary
+		sdesc := op.DescribeShort()
+		fmt.Fprintln(c.msgout, "Usage:", os.Args[0], sdesc.Cmd, sdesc.First, sdesc.Second)
+		// Header
+		fmt.Fprintf(c.msgout, "\n%s\n", header)
+		// Describe required task name(s), if any
+		if tdesc := op.Parser().TaskDescription(); tdesc != "" {
+			fmt.Fprintf(c.msgout, "\nRequired task information\n\t%s\n", tdesc)
+		}
+		// Parameter description
+		if pdesc := op.Parser().ParamDescription(); len(pdesc) > 0 {
+			fmt.Fprintf(c.msgout, "\nPossible parameters\n")
+			w := tabwriter.NewWriter(c.msgout, 4, 4, 2, ' ', 0)
+			for _, par := range pdesc {
+				fmt.Fprintf(w, "    %s\t%s\t%s\n",
+					par.ParamName, par.ParamValues, par.ParamExplanation)
+			}
+			w.Flush()
+		}
+		// Footer
+		if footer != "" {
+			fmt.Fprintf(c.msgout, "\n%s\n", footer)
+		}
+		return nil
+	} else {
+		return errors.Errorf("No such operation: %s", cmd)
+	}
+}
+
+// Print the help text for all available commands.
+func (c *Client) PrintAllOperationsHelp() {
+	printAllOperationsHelp(c.msgout)
+}
+
+// Print the help text for all available commands.
+func printAllOperationsHelp(out io.Writer) {
+	fmt.Fprintf(out,
+		"\nUsage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
+	fmt.Fprintln(out, "Available commands")
+
+	w := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
+	for _, descr := range operationDescriptions() {
+		fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", descr.Cmd, descr.First, descr.Second, descr.What)
+	}
+	w.Flush()
+}
+
 // Print an error message for the user.
 func (c *Client) PrintError(err error) {
-	fmt.Fprintln(c.msgout, err.Error())
+	printError(err, c.msgout)
+}
+
+// Print an error message for the user.
+func printError(err error, w io.Writer) {
+	fmt.Fprintln(w, err.Error())
+}
+
+// Print the error, the usage message, then exit with error status.
+func showUsageAndDie(err error) {
+	printError(err, os.Stderr)
+	printAllOperationsHelp(os.Stderr)
+	os.Exit(2)
 }

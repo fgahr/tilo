@@ -5,6 +5,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/pkg/errors"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -18,6 +19,8 @@ type taskHandler interface {
 	handleTasks(cmd *msg.Cmd, args []string) ([]string, error)
 	// TODO: Better options here? Write to a writer?
 	describe() string
+	// 0: no tasks, 1: one task, 2: several tasks
+	numberOfTasks() int
 }
 
 type noTaskHandler struct{}
@@ -28,6 +31,10 @@ func (h noTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error
 
 func (h noTaskHandler) describe() string {
 	return ""
+}
+
+func (h noTaskHandler) numberOfTasks() int {
+	return 0
 }
 
 type singleTaskHandler struct{}
@@ -51,7 +58,11 @@ func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, e
 }
 
 func (h singleTaskHandler) describe() string {
-	return "task"
+	return "[task]"
+}
+
+func (h singleTaskHandler) numberOfTasks() int {
+	return 1
 }
 
 type multiTaskHandler struct{}
@@ -78,19 +89,48 @@ func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, er
 }
 
 func (h multiTaskHandler) describe() string {
-	return AllTasks + "|task,..."
+	return "[task,..]"
+}
+
+func (h multiTaskHandler) numberOfTasks() int {
+	return 2
 }
 
 type ArgHandler interface {
 	// Parse the params and modify cmd accordingly.
 	// Returns unused arguments and a possible error.
 	HandleArgs(cmd *msg.Cmd, args []string) ([]string, error)
+	// Whether the argument handler takes any parameters.
+	TakesParameters() bool
+	// Describe available parameters
+	DescribeParameters() []ParamDescription
 }
 
 type noArgHandler struct{}
 
 func (h noArgHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) {
 	return args, nil
+}
+
+func (h noArgHandler) TakesParameters() bool {
+	return false
+}
+
+func (h noArgHandler) DescribeParameters() []ParamDescription {
+	return nil
+}
+
+type Description struct {
+	Cmd    string // Name of the command
+	First  string // The first class of arguments, if any
+	Second string // The second class of arguments, if any
+	What   string // What the command does
+}
+
+type ParamDescription struct {
+	ParamName        string // Name of the parameter
+	ParamValues      string // Description of possible values
+	ParamExplanation string // Explanation of this parameter
 }
 
 // TODO: Move methods to builder?
@@ -102,6 +142,31 @@ type Parser struct {
 
 func CommandParser(command string) *Parser {
 	return &Parser{command: command, taskHandler: nil, argHandler: nil}
+}
+
+func (p *Parser) TaskDescription() string {
+	switch p.taskHandler.numberOfTasks() {
+	case 0:
+		return ""
+	case 1:
+		return p.taskHandler.describe() + "  A single task name"
+	case 2:
+		return p.taskHandler.describe() + "  One or more task names, separated by comma; :all to select all tasks"
+	default:
+		panic("Invalid number of tasks for task handler")
+	}
+}
+
+func (p *Parser) ParamDescription() []ParamDescription {
+	return p.argHandler.DescribeParameters()
+}
+
+func (p *Parser) Describe(what string) Description {
+	paramDescription := ""
+	if p.argHandler.TakesParameters() {
+		paramDescription = "[parameters]"
+	}
+	return Description{p.command, p.taskHandler.describe(), paramDescription, what}
 }
 
 func (p *Parser) WithoutTask() *Parser {
@@ -208,6 +273,14 @@ type Param struct {
 	Description string
 }
 
+func (p Param) Describe() ParamDescription {
+	return ParamDescription{
+		ParamName:        ParamIdentifierPrefix + p.Name,
+		ParamValues:      p.Quantifier.DescribeUsage(),
+		ParamExplanation: p.Description,
+	}
+}
+
 type paramHandler struct {
 	params map[string]Param
 }
@@ -248,6 +321,24 @@ func (p paramHandler) HandleArgs(cmd *msg.Cmd, args []string) ([]string, error) 
 	}
 	cmd.Quantities = quant
 	return unused, nil
+}
+
+func (h paramHandler) TakesParameters() bool {
+	return len(h.params) > 0
+}
+
+func (h paramHandler) DescribeParameters() []ParamDescription {
+	descriptions := make([]ParamDescription, len(h.params))
+	i := 0
+	for _, par := range h.params {
+		descriptions[i] = par.Describe()
+		i++
+	}
+	byName := func(i, j int) bool {
+		return descriptions[i].ParamName < descriptions[j].ParamName
+	}
+	sort.Slice(descriptions, byName)
+	return descriptions
 }
 
 func HandlerForParams(params []Param) ArgHandler {

@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	"io"
 	"os"
 	"time"
 )
@@ -22,6 +21,16 @@ func (op PingOperation) Command() string {
 
 func (op PingOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op PingOperation) DescribeShort() argparse.Description {
+	return op.Parser().Describe("Ping the server")
+}
+
+func (op PingOperation) HelpHeaderAndFooter() (string, string) {
+	header := "Request a reply from the server, measure the time between sending and receiving"
+	footer := "Use this command to test server responsiveness"
+	return header, footer
 }
 
 func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -47,10 +56,6 @@ func (op PingOperation) ServerExec(srv *server.Server, req *server.Request) erro
 	resp.Status = msg.RespSuccess
 	resp.AddPong()
 	return srv.Answer(req, resp)
-}
-
-func (op PingOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

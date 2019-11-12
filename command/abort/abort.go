@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type AbortOperation struct {
@@ -20,6 +19,16 @@ func (op AbortOperation) Command() string {
 
 func (op AbortOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
+}
+
+func (op AbortOperation) DescribeShort() argparse.Description {
+	return op.Parser().Describe("Abort the currently active task without saving")
+}
+
+func (op AbortOperation) HelpHeaderAndFooter() (string, string) {
+	header := "Abort the currently active task without logging the time"
+	footer := "Use the `stop` command to log the time of a task"
+	return header, footer
 }
 
 func (op AbortOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -37,10 +46,6 @@ func (op AbortOperation) ServerExec(srv *server.Server, req *server.Request) err
 		resp.SetError(errors.New("No active task"))
 	}
 	return srv.Answer(req, resp)
-}
-
-func (op AbortOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

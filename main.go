@@ -4,9 +4,9 @@ package main
 import (
 	"fmt"
 	"github.com/fgahr/tilo/client"
-	"github.com/fgahr/tilo/command"
 	_ "github.com/fgahr/tilo/command/abort"
 	_ "github.com/fgahr/tilo/command/current"
+	_ "github.com/fgahr/tilo/command/help"
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/query"
@@ -22,15 +22,6 @@ import (
 // Initiate server or client operation based on given arguments.
 func main() {
 	args := os.Args[1:]
-	if len(args) == 0 {
-		command.PrintAllOperationsHelp()
-		os.Exit(1)
-	}
-
-	if args[0] == "-h" || args[0] == "--help" {
-		command.PrintAllOperationsHelp()
-		os.Exit(0)
-	}
 
 	conf, restArgs, err := config.GetConfig(args, os.Environ())
 	if err != nil {

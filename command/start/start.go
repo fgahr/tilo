@@ -7,7 +7,6 @@ import (
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type StartOperation struct {
@@ -20,6 +19,18 @@ func (op StartOperation) Command() string {
 
 func (op StartOperation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithSingleTask().WithoutParams()
+}
+
+func (op StartOperation) DescribeShort() argparse.Description {
+	return op.Parser().Describe("Start logging activity on a task")
+}
+
+func (op StartOperation) HelpHeaderAndFooter() (string, string) {
+	header := "Set the currently active task, i.e. start logging time. If a task is active, save it first"
+	footer := "To avoid saving the previous task, use the `abort` command first\n\n" +
+		"This command can also be used from time to time to avoid losing activity accidentally\n" +
+		"In this case the `current` command will only show elapsed time since the last 'save'"
+	return header, footer
 }
 
 func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
@@ -41,10 +52,6 @@ func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) err
 	srv.SetActiveTask(taskName)
 	resp.AddCurrentTask(srv.CurrentTask)
 	return srv.Answer(req, resp)
-}
-
-func (op StartOperation) PrintUsage(w io.Writer) {
-	command.PrintSingleOperationHelp(op, w)
 }
 
 func init() {

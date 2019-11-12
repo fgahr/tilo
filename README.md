@@ -17,10 +17,60 @@ incomplete. That being said, I intend to use it and fix/improve it as necessary.
 Feel free to point out any mistakes I made.
 
 # Usage
-As a major overhaul with a more dynamic help system is underway, the program
-currently has no help message. As soon as I figure out how I want to implement
-this and get around to actually doing that, this situation will improve. The
-output will then be included here.
+`tilo help` gives usage information, either as a summary of all commands or
+detailed information about a particular command:
+```
+# tilo help
+
+Usage: tilo [command] <task(s)> <parameters>
+
+Available commands
+    abort                                Abort the currently active task without saving
+    current                              See which task is currently active
+    help      <command>                  Describe program or detailed usage of a command
+    listen                               Listen for and print server notifications
+    ping                                 Ping the server
+    query     [task,..]    [parameters]  Make enquiries about prior activity
+    server    [start|run]                Start a server in the background/foreground
+    shutdown                             Request server shutdown
+    start     [task]                     Start logging activity on a task
+    stop                                 Stop and save the currently active task
+```
+
+The `query` command is currently the most complex. It's usage is as follows:
+```
+# tilo help query
+Usage: tilo query [task,..] [parameters]
+
+Get information about recorded activity
+
+Required task information
+    [task,..]  One or more task names, separated by comma; :all to select all tasks
+
+Possible parameters
+    :between     YYYY-MM-DD:YYYY-MM-DD,...  Activity between two dates
+    :day         YYYY-MM-DD,...             Activity on a given day
+    :days-ago    N,...                      Activity N days ago
+    :last-month                             Last month's activity
+    :last-week                              Last week's activity
+    :last-year                              Last year's activity
+    :month       YYYY-MM,...                Activity in a given month
+    :months-ago  N,...                      Activity N months ago
+    :since       YYYY-MM-DD,...             Activity since a specific day
+    :this-month                             This month's activity
+    :this-week                              This week's activity
+    :this-year                              This year's activity
+    :today                                  Today's activity
+    :weeks-ago   N,...                      Activity N weeks ago
+    :year        YYYY,...                   Activity in a given year
+    :years-ago   N,...                      Activity N years ago
+    :yesterday                              Yesterday's activity
+
+Examples
+    tilo query :all :this-week                    # This week's activity across all tasks
+    tilo query foo :between 2019-01-01:2019-06-30 # Logged on task foo in first half of 2019
+    tilo query bar :month=2019-01,2019-02,2019-03 # Activity for bar in three different months
+```
 
 # Details
 Server and client communicate through a Unix domain socket, so windows will
@@ -71,6 +121,6 @@ https://github.com/fgahr/tilo-systray
 - `log`: Save a new log entry, in case you forgot to start the timer
 - ...
 ## Other
-- Dynamic help system
 - Bash/Zsh completion of task names and parameters
 - Different output options (CSV, JSON, ...)
+- Support for TCP connections, remote server

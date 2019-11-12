@@ -94,25 +94,25 @@ func newQueryArgHandler(now time.Time) argparse.ArgHandler {
 			Name:        paramDaysAgo,
 			RequiresArg: true,
 			Quantifier:  quantifier.ListOf(quantifier.DynamicDayOffset(now)),
-			Description: "Activity N days ago.",
+			Description: "Activity N days ago",
 		},
 		argparse.Param{
 			Name:        paramWeeksAgo,
 			RequiresArg: true,
 			Quantifier:  quantifier.ListOf(quantifier.DynamicWeekOffset(now)),
-			Description: "Activity N weeks ago.",
+			Description: "Activity N weeks ago",
 		},
 		argparse.Param{
 			Name:        paramMonthsAgo,
 			RequiresArg: true,
 			Quantifier:  quantifier.ListOf(quantifier.DynamicMonthOffset(now)),
-			Description: "Activity N months ago.",
+			Description: "Activity N months ago",
 		},
 		argparse.Param{
 			Name:        paramYearsAgo,
 			RequiresArg: true,
 			Quantifier:  quantifier.ListOf(quantifier.DynamicYearOffset(now)),
-			Description: "Activity N years ago.",
+			Description: "Activity N years ago",
 		},
 
 		// Specific day/month/year
