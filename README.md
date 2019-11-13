@@ -37,7 +37,7 @@ Available commands
     stop                                 Stop and save the currently active task
 ```
 
-The `query` command is currently the most complex. It's usage is as follows:
+The `query` command is currently the most complex. Its usage is as follows:
 ```
 # tilo help query
 Usage: tilo query [task,..] [parameters]
