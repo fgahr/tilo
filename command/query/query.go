@@ -30,7 +30,8 @@ func (op QueryOperation) DescribeShort() argparse.Description {
 
 func (op QueryOperation) HelpHeaderAndFooter() (string, string) {
 	header := "Get information about recorded activity"
-	footer := "Where indicated, a list of quantifiers (or pairs thereof) can be given\n\n" +
+	footer := "Where indicated, a list of quantifiers (or pairs thereof) can be given\n" +
+		"Parameters can be freely combined and repeated in a single query\n\n" +
 		"Examples\n" +
 		"    tilo query :all :this-week                    # This week's activity across all tasks\n" +
 		"    tilo query foo :between 2019-01-01:2019-06-30 # Logged on task foo in first half of 2019\n" +

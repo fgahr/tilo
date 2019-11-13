@@ -67,6 +67,7 @@ Possible parameters
     :yesterday                              Yesterday's activity
 
 Where indicated, a list of quantifiers (or pairs thereof) can be given
+Parameters can be freely combined and repeated in a single query
 
 Examples
     tilo query :all :this-week                    # This week's activity across all tasks
