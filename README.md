@@ -66,6 +66,8 @@ Possible parameters
     :years-ago   N,...                      Activity N years ago
     :yesterday                              Yesterday's activity
 
+Where indicated, a list of quantifiers (or pairs thereof) can be given
+
 Examples
     tilo query :all :this-week                    # This week's activity across all tasks
     tilo query foo :between 2019-01-01:2019-06-30 # Logged on task foo in first half of 2019
