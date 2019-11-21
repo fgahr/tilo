@@ -26,6 +26,7 @@ func main() {
 	conf, restArgs, err := config.GetConfig(args, os.Environ())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	if client.Dispatch(conf, restArgs) {
