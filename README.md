@@ -3,6 +3,9 @@ A simple time logging system written in Golang, backed by SQLite3, with
 client/server operation. Communication happens by sending JSON-encoded
 command and response messages back and forth.
 
+Admittedly, this design already incurs considerable complexity cost. For a
+simpler approach see [olit](https://github.com/fgahr/olit).
+
 # Installation
 Your best bet is running on Linux, Windows is very unlikely to work. Make sure
 you have `go` installed. Then the following command will create the binary in
