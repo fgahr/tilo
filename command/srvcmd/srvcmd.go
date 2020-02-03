@@ -12,6 +12,7 @@ import (
 const (
 	RUN   = "run"
 	START = "start"
+	STOP = "stop"
 )
 
 type CommandHandler struct {
@@ -41,6 +42,10 @@ func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
 			ParamExplanation: "Start a server in the background, suppressing output",
 		},
 		argparse.ParamDescription{
+			ParamName: "stop",
+			ParamExplanation: "Stop a running server",
+		},
+		argparse.ParamDescription{
 			ParamName:        "run",
 			ParamExplanation: "Start a server in the foreground, printing log messages",
 		},
@@ -52,6 +57,8 @@ func isKnownCommand(str string) bool {
 	case RUN:
 		return true
 	case START:
+		return true
+	case STOP:
 		return true
 	default:
 		return false
@@ -73,25 +80,40 @@ func (op ServerOperation) Parser() *argparse.Parser {
 func (op ServerOperation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
-		First: "[start|run]",
-		What:  "Start a server in the background/foreground",
+		First: "[start|stop|run]",
+		What:  "Start or stop a server process or run in the foreground",
 	}
 }
 
 func (op ServerOperation) HelpHeaderAndFooter() (string, string) {
-	header := "Start a server process"
-	footer := "If the server is not running at the time, several commands may spawn it as a background process"
+	header := "Start or stop a server process"
+	footer := "Several other commands may spawn a server process if it is not yet running"
 	return header, footer
 }
 
-func (op ServerOperation) ClientExec(cl *client.Client, _ msg.Cmd) error {
+func (op ServerOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	switch op.ch.command {
 	case START:
 		cl.EnsureServerIsRunning()
+	case STOP:
+		op.requestShutdown(cl, cmd)
 	case RUN:
 		cl.RunServer()
 	}
 	return cl.Error()
+}
+
+func (op ServerOperation) requestShutdown(cl *client.Client, cmd msg.Cmd) error {
+	// FIXME: This is a bit of a hack for now. With more server commands added
+	// (such as `reload`, `restart`, etc.) it will make sense to enable
+	// ServerExec for this operation.
+	cmd.Op = "shutdown"
+	if cl.ServerIsRunning() {
+		cl.SendReceivePrint(cmd)
+	} else {
+		cl.PrintMessage("Server appears to be down. Nothing to do")
+	}
+	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
 }
 
 func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) error {
