@@ -19,7 +19,7 @@ import (
 
 var operations = make(map[string]ClientOperation)
 
-// Common interface for client-side operations.
+// ClientOperation is the common interface for all client-side operations.
 type ClientOperation interface {
 	// Execute client-side behaviour based on args.
 	ClientExec(cl *Client, cmd msg.Cmd) error
@@ -31,13 +31,14 @@ type ClientOperation interface {
 	HelpHeaderAndFooter() (string, string)
 }
 
-// Make a client-side operation available.
+// RegisterOperation makes a client-side operation available.
 // This function is called indirectly from other packages' init() functions.
 func RegisterOperation(name string, operation ClientOperation) {
 	operations[name] = operation
 }
 
-// Execute the appropriate action based on the configuration and the arguments.
+// Dispatch to the appropriate command handler based on the given arguments.
+// Returns true if all operations succeeded, false otherwise.
 func Dispatch(conf *config.Opts, args []string) bool {
 	if len(args) == 0 {
 		showUsageAndDie(errors.New("No command given"))
@@ -45,7 +46,7 @@ func Dispatch(conf *config.Opts, args []string) bool {
 
 	if args[0] == "-h" || args[0] == "--help" {
 		printAllOperationsHelp(os.Stderr)
-		os.Exit(0)
+		return true
 	}
 
 	command := args[0]
@@ -67,6 +68,7 @@ func Dispatch(conf *config.Opts, args []string) bool {
 	}
 }
 
+// Client is a type bundling everything required for client-side operation.
 type Client struct {
 	conf   *config.Opts
 	conn   net.Conn
@@ -77,10 +79,10 @@ type Client struct {
 // Read from the client's connection.
 func (cl *Client) Read(p []byte) (n int, err error) {
 	if cl.Failed() {
-		return 0, errors.Wrap(cl.err, "Cannot read from socket. Previous error")
+		return 0, errors.Wrap(cl.err, "cannot read from socket: preceding error")
 	}
 	if cl.conn == nil {
-		panic("Connection not yet established.")
+		panic("cannot read: connection not yet established")
 	}
 	return cl.conn.Read(p)
 }
@@ -89,12 +91,12 @@ func newClient(conf *config.Opts) *Client {
 	return &Client{conf: conf, msgout: os.Stderr}
 }
 
-// Whether the client has encountered an error.
+// Failed returns whether the client has encountered an error.
 func (c *Client) Failed() bool {
 	return c.err != nil
 }
 
-// Whether the client is connected.
+// Connected returns whether the client has is connected to the server.
 func (c *Client) Connected() bool {
 	return c.conn != nil
 }
@@ -109,12 +111,14 @@ func (c *Client) Close() error {
 	return err
 }
 
-// The first error the client may have encountered. Nil on successful operation.
+// Error returns the first error the client may have encountered, or nil.
 func (c *Client) Error() error {
 	return c.err
 }
 
-// Send the command to the server, receive and print the response.
+// SendReceivePrint executes a typical client lifecycle: a server round-trip.
+// This will establish a connection, send the command, receive a response, and
+// print it.
 func (c *Client) SendReceivePrint(cmd msg.Cmd) {
 	c.EstablishConnection()
 	c.SendToServer(cmd)
@@ -122,8 +126,7 @@ func (c *Client) SendReceivePrint(cmd msg.Cmd) {
 	c.PrintResponse(resp)
 }
 
-// Establish a connection to the server.
-// Will start the server if it isn't running yet.
+// EstablishConnection ensures the server is up and the client is connected.
 func (c *Client) EstablishConnection() {
 	if c.Failed() {
 		return
@@ -131,40 +134,40 @@ func (c *Client) EstablishConnection() {
 	c.EnsureServerIsRunning()
 	socket := c.conf.Socket.Value
 	if conn, err := net.Dial(c.conf.Protocol.Value, socket); err != nil {
-		c.err = errors.Wrap(err, "Failed to connect to socket "+socket)
+		c.err = errors.Wrap(err, "failed to connect to socket "+socket)
 	} else {
 		c.conn = conn
 	}
 }
 
-// Send the command to the server.
+// SendToServer sends the given command to the server.
 func (c *Client) SendToServer(cmd msg.Cmd) {
 	if c.Failed() {
 		return
 	}
 	if !c.Connected() {
-		c.err = errors.New("Cannot send: not connected")
+		c.err = errors.New("cannot send to server: not connected")
 	}
 	enc := json.NewEncoder(c.conn)
-	c.err = errors.Wrap(enc.Encode(cmd), "Failed to send command to server")
+	c.err = errors.Wrap(enc.Encode(cmd), "failed to send command to server")
 }
 
-// Receive a response from the server.
+// ReceiveFromServer receives a response from the server.
 func (c *Client) ReceiveFromServer() msg.Response {
 	resp := msg.Response{}
 	if c.Failed() {
-		resp.SetError(errors.Wrap(c.err, "Prior failure in communication"))
+		resp.SetError(errors.Wrap(c.err, "preceding failure in communication"))
 		return resp
 	}
 	if !c.Connected() {
-		c.err = errors.New("Cannot receive: not connected")
+		c.err = errors.New("cannot receive from server: not connected")
 	}
 	dec := json.NewDecoder(c.conn)
-	c.err = errors.Wrap(dec.Decode(&resp), "Failed to decode response")
+	c.err = errors.Wrap(dec.Decode(&resp), "failed to decode response")
 	return resp
 }
 
-// Show the response to the user.
+// PrintResponse print a server response for the user to read.
 func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
@@ -191,11 +194,11 @@ func (c *Client) PrintResponse(resp msg.Response) {
 	}
 }
 
-// Make sure the server is running, start it if necessary.
+// EnsureServerIsRunning will do nothing if the server is up, else it will start it.
 func (c *Client) EnsureServerIsRunning() {
 	// Query server status.
 	if running, err := server.IsRunning(c.conf); err != nil {
-		c.err = errors.Wrap(err, "Could not determine server status")
+		c.err = errors.Wrap(err, "unable to determine server status")
 		return
 	} else if running {
 		return
@@ -227,22 +230,22 @@ func (c *Client) EnsureServerIsRunning() {
 	// TODO: Make timeout configurable
 	case <-time.After(5 * time.Second):
 		close(notifyChan)
-		c.err = errors.New("Timeout exceeded trying to bring up server.")
+		c.err = errors.New("timeout exceeded trying to bring up server")
 	}
 }
 
-// Whether the server appears to be running.
+// ServerIsRunning tries to determine whether the server is running.
 func (c *Client) ServerIsRunning() bool {
 	running, _ := server.IsRunning(c.conf)
 	return running
 }
 
-// Run the server in the foreground.
+// RunServer will yield the current process to a freshly started server.
 func (c *Client) RunServer() {
 	c.err = server.Run(c.conf)
 }
 
-// Print a message for the user.
+// PrintMessage prints the given message for the user.
 func (c *Client) PrintMessage(message string) {
 	fmt.Fprintln(c.msgout, message)
 }
@@ -272,7 +275,7 @@ func (c *Client) CommandExists(cmd string) bool {
 	return ok
 }
 
-// Print the detailed help message for the cmd operation.
+// PrintSingleOperationHelp prints the detailed help for a single command.
 func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
 		header, footer := op.HelpHeaderAndFooter()
@@ -305,7 +308,7 @@ func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	}
 }
 
-// Print the help text for all available commands.
+// PrintAllOperationsHelp prints a command usage overview for the user.
 func (c *Client) PrintAllOperationsHelp() {
 	printAllOperationsHelp(c.msgout)
 }
@@ -323,7 +326,7 @@ func printAllOperationsHelp(out io.Writer) {
 	w.Flush()
 }
 
-// Print an error message for the user.
+// PrintError prints an error message for the user.
 func (c *Client) PrintError(err error) {
 	printError(err, c.msgout)
 }
