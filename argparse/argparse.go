@@ -15,12 +15,18 @@ const (
 	AllTasks string = ParamIdentifierPrefix + "all"
 )
 
+type numTasks int
+
+const (
+	noTasks      numTasks = 0
+	oneTask      numTasks = 1
+	severalTasks numTasks = 2
+)
+
 type taskHandler interface {
 	handleTasks(cmd *msg.Cmd, args []string) ([]string, error)
-	// TODO: Better options here? Write to a writer?
-	describe() string
-	// 0: no tasks, 1: one task, 2: several tasks
-	numberOfTasks() int
+	description() string
+	numberOfTasks() numTasks
 }
 
 type noTaskHandler struct{}
@@ -29,12 +35,12 @@ func (h noTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, error
 	return args, nil
 }
 
-func (h noTaskHandler) describe() string {
+func (h noTaskHandler) description() string {
 	return ""
 }
 
-func (h noTaskHandler) numberOfTasks() int {
-	return 0
+func (h noTaskHandler) numberOfTasks() numTasks {
+	return noTasks
 }
 
 type singleTaskHandler struct{}
@@ -57,12 +63,12 @@ func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, e
 	return args[1:], nil
 }
 
-func (h singleTaskHandler) describe() string {
+func (h singleTaskHandler) description() string {
 	return "[task]"
 }
 
-func (h singleTaskHandler) numberOfTasks() int {
-	return 1
+func (h singleTaskHandler) numberOfTasks() numTasks {
+	return oneTask
 }
 
 type multiTaskHandler struct{}
@@ -88,12 +94,12 @@ func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, er
 	return args[1:], nil
 }
 
-func (h multiTaskHandler) describe() string {
+func (h multiTaskHandler) description() string {
 	return "[task,..]"
 }
 
-func (h multiTaskHandler) numberOfTasks() int {
-	return 2
+func (h multiTaskHandler) numberOfTasks() numTasks {
+	return severalTasks
 }
 
 type ArgHandler interface {
@@ -146,12 +152,12 @@ func CommandParser(command string) *Parser {
 
 func (p *Parser) TaskDescription() string {
 	switch p.taskHandler.numberOfTasks() {
-	case 0:
+	case noTasks:
 		return ""
-	case 1:
-		return p.taskHandler.describe() + "  A single task name"
-	case 2:
-		return p.taskHandler.describe() + "  One or more task names, separated by comma; :all to select all tasks"
+	case oneTask:
+		return p.taskHandler.description() + "  A single task name"
+	case severalTasks:
+		return p.taskHandler.description() + "  One or more task names, separated by comma; :all to select all tasks"
 	default:
 		panic("Invalid number of tasks for task handler")
 	}
@@ -166,7 +172,7 @@ func (p *Parser) Describe(what string) Description {
 	if p.argHandler.TakesParameters() {
 		paramDescription = "[parameters]"
 	}
-	return Description{p.command, p.taskHandler.describe(), paramDescription, what}
+	return Description{p.command, p.taskHandler.description(), paramDescription, what}
 }
 
 func (p *Parser) WithoutTask() *Parser {
