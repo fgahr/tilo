@@ -4,17 +4,18 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fgahr/tilo/argparse"
-	"github.com/fgahr/tilo/config"
-	"github.com/fgahr/tilo/msg"
-	"github.com/fgahr/tilo/server"
-	"github.com/pkg/errors"
 	"io"
 	"net"
 	"os"
 	"sort"
 	"text/tabwriter"
 	"time"
+
+	"github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/msg"
+	"github.com/fgahr/tilo/server"
+	"github.com/pkg/errors"
 )
 
 var operations = make(map[string]ClientOperation)
@@ -61,7 +62,7 @@ func Dispatch(conf *config.Opts, args []string) bool {
 		cl.PrintShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(cl, cmd); err != nil {
-		cl.PrintMessage(err.Error())
+		cl.PrintError(err)
 		return false
 	} else {
 		return true

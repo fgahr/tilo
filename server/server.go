@@ -3,11 +3,6 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/fgahr/tilo/config"
-	"github.com/fgahr/tilo/msg"
-	"github.com/fgahr/tilo/server/backend"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
 	"io"
 	"log"
 	"net"
@@ -15,6 +10,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/fgahr/tilo/config"
+	"github.com/fgahr/tilo/msg"
+	"github.com/fgahr/tilo/server/backend"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 )
 
 var operations = make(map[string]ServerOperation)
