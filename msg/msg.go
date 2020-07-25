@@ -2,9 +2,10 @@
 package msg
 
 import (
-	"github.com/pkg/errors"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -75,14 +76,14 @@ func rightNow() time.Time {
 	return time.Now().Truncate(time.Second)
 }
 
-// Type repserenting a server's response to a client's request.
+// Response represents a server's answer to a client's request.
 type Response struct {
 	Status string     `json:"status"`
 	Error  string     `json:"error"`
 	Body   [][]string `json:"body"`
 }
 
-// Type representing summary of a single request.
+// Summary represents all relevant information concerning a single request
 type Summary struct {
 	Task    string
 	Details Quantity
@@ -96,7 +97,7 @@ func (r *Response) SetError(err error) {
 		return
 	}
 
-	if r.Failed() {
+	if !r.Failed() {
 		r.Status = RespError
 	}
 	r.Error = err.Error()
