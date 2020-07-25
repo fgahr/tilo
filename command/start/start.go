@@ -9,23 +9,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-type StartOperation struct {
+type operation struct {
 	// No state required
 }
 
-func (op StartOperation) Command() string {
+func (op operation) Command() string {
 	return "start"
 }
 
-func (op StartOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithSingleTask().WithoutParams()
 }
 
-func (op StartOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Start logging activity on a task")
 }
 
-func (op StartOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Set the currently active task, i.e. start logging time. If a task is active, save it first"
 	footer := "To avoid saving the previous task, use the `abort` command first\n\n" +
 		"This command can also be used from time to time to avoid losing activity accidentally\n" +
@@ -33,12 +33,12 @@ func (op StartOperation) HelpHeaderAndFooter() (string, string) {
 	return header, footer
 }
 
-func (op StartOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
 	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.Tasks[0])
 }
 
-func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	taskName := req.Cmd.Tasks[0]
@@ -55,5 +55,5 @@ func (op StartOperation) ServerExec(srv *server.Server, req *server.Request) err
 }
 
 func init() {
-	command.RegisterOperation(StartOperation{})
+	command.RegisterOperation(operation{})
 }

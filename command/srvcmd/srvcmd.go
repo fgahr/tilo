@@ -12,14 +12,14 @@ import (
 const (
 	RUN   = "run"
 	START = "start"
-	STOP = "stop"
+	STOP  = "stop"
 )
 
-type CommandHandler struct {
+type cmdHandler struct {
 	command string
 }
 
-func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error) {
+func (h *cmdHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error) {
 	if len(args) == 0 {
 		return args, errors.New("Require a command but none was given")
 	}
@@ -31,18 +31,18 @@ func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error)
 	return args[1:], nil
 }
 
-func (h *CommandHandler) TakesParameters() bool {
+func (h *cmdHandler) TakesParameters() bool {
 	return true
 }
 
-func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
+func (h *cmdHandler) DescribeParameters() []argparse.ParamDescription {
 	return []argparse.ParamDescription{
 		argparse.ParamDescription{
 			ParamName:        "start",
 			ParamExplanation: "Start a server in the background, suppressing output",
 		},
 		argparse.ParamDescription{
-			ParamName: "stop",
+			ParamName:        "stop",
 			ParamExplanation: "Stop a running server",
 		},
 		argparse.ParamDescription{
@@ -65,19 +65,19 @@ func isKnownCommand(str string) bool {
 	}
 }
 
-type ServerOperation struct {
-	ch *CommandHandler
+type operation struct {
+	ch *cmdHandler
 }
 
-func (op ServerOperation) Command() string {
+func (op operation) Command() string {
 	return "server"
 }
 
-func (op ServerOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
-func (op ServerOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
 		First: "[start|stop|run]",
@@ -85,13 +85,13 @@ func (op ServerOperation) DescribeShort() argparse.Description {
 	}
 }
 
-func (op ServerOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Start or stop a server process"
 	footer := "Several other commands may spawn a server process if it is not yet running"
 	return header, footer
 }
 
-func (op ServerOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	switch op.ch.command {
 	case START:
 		cl.EnsureServerIsRunning()
@@ -103,7 +103,7 @@ func (op ServerOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	return cl.Error()
 }
 
-func (op ServerOperation) requestShutdown(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) requestShutdown(cl *client.Client, cmd msg.Cmd) error {
 	// FIXME: This is a bit of a hack for now. With more server commands added
 	// (such as `reload`, `restart`, etc.) it will make sense to enable
 	// ServerExec for this operation.
@@ -116,7 +116,7 @@ func (op ServerOperation) requestShutdown(cl *client.Client, cmd msg.Cmd) error 
 	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
 }
 
-func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	resp.SetError(errors.New("Not a valid server operation:" + op.Command()))
@@ -124,5 +124,5 @@ func (op ServerOperation) ServerExec(srv *server.Server, req *server.Request) er
 }
 
 func init() {
-	command.RegisterOperation(ServerOperation{new(CommandHandler)})
+	command.RegisterOperation(operation{new(cmdHandler)})
 }

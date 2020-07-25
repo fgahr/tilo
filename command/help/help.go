@@ -9,12 +9,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CommandHandler struct {
+type cmdHandler struct {
 	specific bool
 	command  string
 }
 
-func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error) {
+func (h *cmdHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error) {
 	if len(args) == 0 {
 		return args, nil
 	}
@@ -24,11 +24,11 @@ func (h *CommandHandler) HandleArgs(_ *msg.Cmd, args []string) ([]string, error)
 	return args[1:], nil
 }
 
-func (h *CommandHandler) TakesParameters() bool {
+func (h *cmdHandler) TakesParameters() bool {
 	return true
 }
 
-func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
+func (h *cmdHandler) DescribeParameters() []argparse.ParamDescription {
 	return []argparse.ParamDescription{
 		argparse.ParamDescription{
 			ParamName:        "",
@@ -38,19 +38,19 @@ func (h *CommandHandler) DescribeParameters() []argparse.ParamDescription {
 	}
 }
 
-type HelpOperation struct {
-	ch *CommandHandler
+type operation struct {
+	ch *cmdHandler
 }
 
-func (op HelpOperation) Command() string {
+func (op operation) Command() string {
 	return "help"
 }
 
-func (op HelpOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithArgHandler(op.ch)
 }
 
-func (op HelpOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return argparse.Description{
 		Cmd:   op.Command(),
 		First: "<command>",
@@ -58,13 +58,13 @@ func (op HelpOperation) DescribeShort() argparse.Description {
 	}
 }
 
-func (op HelpOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Describe usage of a command"
 	footer := "You already know how to use this command :-)"
 	return header, footer
 }
 
-func (op HelpOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	if op.ch.specific {
 		if cl.CommandExists(op.ch.command) {
 			cl.PrintSingleOperationHelp(op.ch.command)
@@ -78,7 +78,7 @@ func (op HelpOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	return nil
 }
 
-func (op HelpOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	resp.SetError(errors.New("Not a valid server operation:" + op.Command()))
@@ -86,5 +86,5 @@ func (op HelpOperation) ServerExec(srv *server.Server, req *server.Request) erro
 }
 
 func init() {
-	command.RegisterOperation(HelpOperation{&CommandHandler{}})
+	command.RegisterOperation(operation{&cmdHandler{}})
 }

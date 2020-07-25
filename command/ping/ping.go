@@ -2,38 +2,39 @@ package ping
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/client"
 	"github.com/fgahr/tilo/command"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
-	"os"
-	"time"
 )
 
-type PingOperation struct {
+type operation struct {
 	// No state required
 }
 
-func (op PingOperation) Command() string {
+func (op operation) Command() string {
 	return "ping"
 }
 
-func (op PingOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op PingOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Ping the server")
 }
 
-func (op PingOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Request a reply from the server, measure the time between sending and receiving"
 	footer := "Use this command to test server responsiveness"
 	return header, footer
 }
 
-func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	// TODO: Should ping start a server if none is running?
 	cl.EstablishConnection()
 	before := time.Now()
@@ -50,7 +51,7 @@ func (op PingOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	return err
 }
 
-func (op PingOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	resp.Status = msg.RespSuccess
@@ -59,5 +60,5 @@ func (op PingOperation) ServerExec(srv *server.Server, req *server.Request) erro
 }
 
 func init() {
-	command.RegisterOperation(PingOperation{})
+	command.RegisterOperation(operation{})
 }

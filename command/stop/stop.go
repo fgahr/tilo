@@ -9,34 +9,34 @@ import (
 	"github.com/pkg/errors"
 )
 
-type StopOperation struct {
+type operation struct {
 	// No state required
 }
 
-func (op StopOperation) Command() string {
+func (op operation) Command() string {
 	return "stop"
 }
 
-func (op StopOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op StopOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Stop and save the currently active task")
 }
 
-func (op StopOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Stop the currently active task, logging the activity"
 	footer := "To stop a task without logging, use the `abort` command"
 	return header, footer
 }
 
-func (op StopOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to stop the current task")
 }
 
-func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	task, stopped := srv.StopCurrentTask()
@@ -52,5 +52,5 @@ func (op StopOperation) ServerExec(srv *server.Server, req *server.Request) erro
 }
 
 func init() {
-	command.RegisterOperation(StopOperation{})
+	command.RegisterOperation(operation{})
 }

@@ -1,6 +1,8 @@
 package query
 
 import (
+	"time"
+
 	"github.com/fgahr/tilo/argparse"
 	"github.com/fgahr/tilo/argparse/quantifier"
 	"github.com/fgahr/tilo/client"
@@ -9,26 +11,25 @@ import (
 	"github.com/fgahr/tilo/server"
 	"github.com/fgahr/tilo/server/backend"
 	"github.com/pkg/errors"
-	"time"
 )
 
-type QueryOperation struct {
+type operation struct {
 	// No state required
 }
 
-func (op QueryOperation) Command() string {
+func (op operation) Command() string {
 	return "query"
 }
 
-func (op QueryOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithMultipleTasks().WithArgHandler(newQueryArgHandler(time.Now()))
 }
 
-func (op QueryOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Make enquiries about prior activity")
 }
 
-func (op QueryOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Get information about recorded activity"
 	footer := "Where indicated, a list of quantifiers (or pairs thereof) can be given\n" +
 		"Parameters can be freely combined and repeated in a single query\n\n" +
@@ -39,12 +40,12 @@ func (op QueryOperation) HelpHeaderAndFooter() (string, string) {
 	return header, footer
 }
 
-func (op QueryOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
 	return errors.Wrap(cl.Error(), "Failed to query the server")
 }
 
-func (op QueryOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
 	backend := srv.Backend
@@ -117,5 +118,5 @@ func queryBackend(b backend.Backend, task string, param msg.Quantity) ([]msg.Sum
 }
 
 func init() {
-	command.RegisterOperation(QueryOperation{})
+	command.RegisterOperation(operation{})
 }

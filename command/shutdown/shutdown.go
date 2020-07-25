@@ -9,28 +9,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ShutdownOperation struct {
+type operation struct {
 	// No state required
 }
 
-func (op ShutdownOperation) Command() string {
+func (op operation) Command() string {
 	return "shutdown"
 }
 
-func (op ShutdownOperation) Parser() *argparse.Parser {
+func (op operation) Parser() *argparse.Parser {
 	return argparse.CommandParser(op.Command()).WithoutTask().WithoutParams()
 }
 
-func (op ShutdownOperation) DescribeShort() argparse.Description {
+func (op operation) DescribeShort() argparse.Description {
 	return op.Parser().Describe("Request server shutdown")
 }
 
-func (op ShutdownOperation) HelpHeaderAndFooter() (string, string) {
+func (op operation) HelpHeaderAndFooter() (string, string) {
 	header := "Request server shutdown"
 	return header, ""
 }
 
-func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
+func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	if cl.ServerIsRunning() {
 		cl.SendReceivePrint(cmd)
 	} else {
@@ -39,7 +39,7 @@ func (op ShutdownOperation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	return errors.Wrapf(cl.Error(), "Failed to initiate server shutdown")
 }
 
-func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) error {
+func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer srv.InitiateShutdown()
 	defer req.Close()
 	resp := msg.Response{}
@@ -55,5 +55,5 @@ func (op ShutdownOperation) ServerExec(srv *server.Server, req *server.Request) 
 }
 
 func init() {
-	command.RegisterOperation(ShutdownOperation{})
+	command.RegisterOperation(operation{})
 }
