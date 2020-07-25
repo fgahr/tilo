@@ -2,9 +2,10 @@
 package backend
 
 import (
+	"time"
+
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
-	"time"
 )
 
 // Type representing a database backend.
@@ -15,6 +16,8 @@ type Backend interface {
 	Close() error
 	Save(task msg.Task) error
 	Config() config.BackendConfig
+	// RecentTasks gives a summary of the latest activity, limited to the `maxNumber` most recent tasks
+	RecentTasks(maxNumber int) ([]msg.Summary, error)
 	// TODO: Split into several meaningful methods?
 	GetTaskBetween(task string, start time.Time, end time.Time) ([]msg.Summary, error)
 	GetAllTasksBetween(start time.Time, end time.Time) ([]msg.Summary, error)
@@ -22,6 +25,7 @@ type Backend interface {
 
 var backends = make(map[string]Backend)
 
+// RegisterBackend needs to be called to make a backend available for use.
 func RegisterBackend(b Backend) {
 	if backends[b.Name()] != nil {
 		panic("Double registration of backend with name " + b.Name())

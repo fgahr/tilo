@@ -7,15 +7,16 @@ package sqlite3
 
 import (
 	"database/sql"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/fgahr/tilo/command/query"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server/backend"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 const (
@@ -109,13 +110,47 @@ func (s *SQLite) Save(task msg.Task) error {
 	return errors.Wrapf(err, "Error while saving %v", task)
 }
 
+func allTasksFromQuery(rows *sql.Rows) ([]msg.Summary, error) {
+	var result []msg.Summary
+	for rows.Next() {
+		var taskName string
+		var duration, started, ended int64
+		err := rows.Scan(&taskName, &duration, &started, &ended)
+		if err != nil {
+			return result, err
+		}
+		taskSummary := msg.Summary{
+			Task:  taskName,
+			Total: time.Duration(duration * int64(time.Second/time.Nanosecond)),
+			Start: time.Unix(started, 0),
+			End:   time.Unix(ended, 0),
+		}
+		result = append(result, taskSummary)
+	}
+
+	return result, rows.Err()
+}
+
+func (s *SQLite) RecentTasks(maxNumber int) ([]msg.Summary, error) {
+	rows, err := s.db.Query(`
+SELECT name, ended - started, started, ended FROM task
+ORDER BY ended DESC
+LIMIT ?;
+`, maxNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return allTasksFromQuery(rows)
+}
+
 // Query the total time spent on a task between start and end.
 func (s *SQLite) GetTaskBetween(task string, start time.Time, end time.Time) ([]msg.Summary, error) {
 	if task == query.TskAllTasks {
 		return s.GetAllTasksBetween(start, end)
 	}
-	// FIXME: total is a non-standard function present in SQLite. Making it
-	// work with sum() seems preferable. NULL-behaviour needs to be tested.
+	// NOTE: total() is a non-standard function present in SQLite which is
+	// superior to sum() in terms of NULL-handling
 	rows, err := s.db.Query(`
 SELECT total(ended - started), min(started), max(ended) FROM task
 WHERE name = ?
@@ -156,22 +191,5 @@ GROUP BY name;`,
 		return nil, err
 	}
 	defer rows.Close()
-	var result []msg.Summary
-	for rows.Next() {
-		var taskName string
-		var duration, started, ended int64
-		err = rows.Scan(&taskName, &duration, &started, &ended)
-		if err != nil {
-			return result, err
-		}
-		taskSummary := msg.Summary{
-			Task:  taskName,
-			Total: time.Duration(duration * int64(time.Second/time.Nanosecond)),
-			Start: time.Unix(started, 0),
-			End:   time.Unix(ended, 0),
-		}
-		result = append(result, taskSummary)
-	}
-
-	return result, rows.Err()
+	return allTasksFromQuery(rows)
 }
