@@ -34,6 +34,7 @@ Available commands
     listen                               Listen for and print server notifications
     ping                                 Ping the server
     query     [task,..]    [parameters]  Make enquiries about prior activity
+    resume                               Resume the last active task
     server    [start|run]                Start a server in the background/foreground
     shutdown                             Request server shutdown
     start     [task]                     Start logging activity on a task
