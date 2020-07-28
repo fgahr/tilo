@@ -122,6 +122,9 @@ A system tray icon displaying the current server status can be found here:
 https://github.com/fgahr/tilo-systray
 
 # TODOs
+## Bugs:
+- :this-week query parameter doesn't work correctly
+- Probably many more..
 ## New commands:
 - `recent`: Shows a given number of recently logged tasks
 - `undo`: Delete one or several logged tasks, ideally with interactive choice
@@ -131,3 +134,4 @@ https://github.com/fgahr/tilo-systray
 - Bash/Zsh completion of task names and parameters
 - Different output options (CSV, JSON, ...)
 - Support for TCP connections, remote server
+- Reconsider connection options: REST API?
