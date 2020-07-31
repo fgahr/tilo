@@ -37,6 +37,7 @@ func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 }
 
 func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
+	defer req.Close()
 	resp := msg.Response{}
 	if srv.CurrentTask.IsRunning() {
 		resp.SetError(errors.New("a task is already active"))

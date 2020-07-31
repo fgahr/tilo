@@ -8,7 +8,7 @@ import (
 	"github.com/fgahr/tilo/msg"
 )
 
-// Type representing a database backend.
+// Backend represents storage of task information, typically a database.
 // TODO: Figure out how to handle malfunctions in remote backends.
 type Backend interface {
 	Name() string
@@ -34,7 +34,7 @@ func RegisterBackend(b Backend) {
 	config.RegisterBackend(b.Config())
 }
 
-// Get the appropriate backend.
+// From determines and sets up a backend based on configuration options.
 func From(conf *config.Opts) Backend {
 	// TODO: Adjust to conf
 	return backends["sqlite3"]

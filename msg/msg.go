@@ -30,7 +30,7 @@ type Cmd struct {
 	Op          string            `json:"operation"`    // The operation to perform
 	Flags       map[string]bool   `json:"flags"`        // Possible flags
 	Opts        map[string]string `json:"options"`      // Possible options
-	Tasks       []string          `json:"tasks"`        // The tasks for any related requests
+	TaskNames   []string          `json:"tasks"`        // The tasks for any related requests
 	Body        [][]string        `json:"body"`         // The body containing the command information
 	Quantities  []Quantity        `json:"quantifiers"`  // Quantifiers, e.g. for queries
 	QueryParams []QueryParam      `json:"query_params"` // The parameters for a query

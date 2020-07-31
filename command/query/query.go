@@ -50,7 +50,7 @@ func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	resp := msg.Response{}
 	backend := srv.Backend
 Outer:
-	for _, task := range req.Cmd.Tasks {
+	for _, task := range req.Cmd.TaskNames {
 		for _, quant := range req.Cmd.Quantities {
 			if sum, err := queryBackend(backend, task, quant); err != nil {
 				resp.SetError(errors.Wrap(err, "A query failed"))

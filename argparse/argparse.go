@@ -2,11 +2,12 @@ package argparse
 
 import (
 	"fmt"
-	"github.com/fgahr/tilo/msg"
-	"github.com/pkg/errors"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/fgahr/tilo/msg"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -58,7 +59,7 @@ func (h singleTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, e
 	} else if tasks[0] == AllTasks {
 		return args, errors.New("Require single task name but found '" + AllTasks + "'")
 	} else {
-		cmd.Tasks = tasks
+		cmd.TaskNames = tasks
 	}
 	return args[1:], nil
 }
@@ -89,7 +90,7 @@ func (h multiTaskHandler) handleTasks(cmd *msg.Cmd, args []string) ([]string, er
 				}
 			}
 		}
-		cmd.Tasks = tasks
+		cmd.TaskNames = tasks
 	}
 	return args[1:], nil
 }

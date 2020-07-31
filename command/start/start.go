@@ -35,13 +35,13 @@ func (op operation) HelpHeaderAndFooter() (string, string) {
 
 func (op operation) ClientExec(cl *client.Client, cmd msg.Cmd) error {
 	cl.SendReceivePrint(cmd)
-	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.Tasks[0])
+	return errors.Wrapf(cl.Error(), "Failed to start task '%s'", cmd.TaskNames[0])
 }
 
 func (op operation) ServerExec(srv *server.Server, req *server.Request) error {
 	defer req.Close()
 	resp := msg.Response{}
-	taskName := req.Cmd.Tasks[0]
+	taskName := req.Cmd.TaskNames[0]
 	task, stopped := srv.StopCurrentTask()
 	if stopped {
 		if err := srv.SaveTask(task); err != nil {
