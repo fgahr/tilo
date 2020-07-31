@@ -12,6 +12,7 @@ import (
 	_ "github.com/fgahr/tilo/command/listen"
 	_ "github.com/fgahr/tilo/command/ping"
 	_ "github.com/fgahr/tilo/command/query"
+	_ "github.com/fgahr/tilo/command/recent"
 	_ "github.com/fgahr/tilo/command/resume"
 	_ "github.com/fgahr/tilo/command/shutdown"
 	_ "github.com/fgahr/tilo/command/srvcmd"
