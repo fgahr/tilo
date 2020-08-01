@@ -18,7 +18,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var operations = make(map[string]ServerOperation)
+var operations = make(map[string]Operation)
 
 type Request struct {
 	Conn net.Conn
@@ -29,12 +29,12 @@ func (req *Request) Close() error {
 	return req.Conn.Close()
 }
 
-type ServerOperation interface {
+type Operation interface {
 	// Execute server-side behaviour based on the command
 	ServerExec(srv *Server, req *Request) error
 }
 
-func RegisterOperation(name string, operation ServerOperation) {
+func RegisterOperation(name string, operation Operation) {
 	operations[name] = operation
 }
 

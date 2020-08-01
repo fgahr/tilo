@@ -18,10 +18,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-var operations = make(map[string]ClientOperation)
+var operations = make(map[string]Operation)
 
-// ClientOperation is the common interface for all client-side operations.
-type ClientOperation interface {
+// Operation is the common interface for all client-side operations.
+type Operation interface {
 	// Execute client-side behaviour based on args.
 	ClientExec(cl *Client, cmd msg.Cmd) error
 	// Command line argument parser for this operation.
@@ -34,7 +34,7 @@ type ClientOperation interface {
 
 // RegisterOperation makes a client-side operation available.
 // This function is called indirectly from other packages' init() functions.
-func RegisterOperation(name string, operation ClientOperation) {
+func RegisterOperation(name string, operation Operation) {
 	operations[name] = operation
 }
 

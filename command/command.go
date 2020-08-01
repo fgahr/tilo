@@ -1,4 +1,4 @@
-// Package for commands to the server
+// Package command describes commands available to the user.
 package command
 
 import (
@@ -10,8 +10,8 @@ var opNames = make(map[string]bool)
 
 // Operation is the common interface for the basic operations of the program.
 type Operation interface {
-	client.ClientOperation
-	server.ServerOperation
+	client.Operation
+	server.Operation
 	// Command describes the name by which this operation is recognized, i.e.
 	// the command line identifier.
 	Command() string
