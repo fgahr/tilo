@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fgahr/tilo/argparse"
+	"github.com/fgahr/tilo/client/output"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
@@ -58,11 +59,11 @@ func Dispatch(conf *config.Opts, args []string) bool {
 
 	c := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		c.PrintError(err)
-		c.PrintShortDescription(op.DescribeShort())
+		c.printError(err)
+		c.printShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(c, cmd); err != nil {
-		c.PrintError(err)
+		c.printError(err)
 		return false
 	} else {
 		return true
@@ -75,9 +76,11 @@ type Client struct {
 	conn   net.Conn
 	msgout io.Writer
 	err    error
+	fmt    output.Formatter
 }
 
 // Read from the client's connection.
+// Client satisfies the io.Reader interface.
 func (c *Client) Read(p []byte) (n int, err error) {
 	if c.Failed() {
 		return 0, errors.Wrap(c.err, "cannot read from socket: preceding error")
@@ -197,21 +200,27 @@ func (c *Client) PrintResponse(resp msg.Response) {
 
 // EnsureServerIsRunning will do nothing if the server is up, else it will start it.
 func (c *Client) EnsureServerIsRunning() {
+	var running bool
+	var err error
+
 	// Query server status.
-	if running, err := server.IsRunning(c.conf); err != nil {
+	running, err = server.IsRunning(c.conf)
+	if err != nil {
 		c.err = errors.Wrap(err, "unable to determine server status")
 		return
-	} else if running {
+	}
+	// Nothing to do
+	if running {
 		return
 	}
 
-	// Start server if it isn't running.
-	if pid, err := server.StartInBackground(c.conf); err != nil {
+	// Start the server
+	pid, err := server.StartInBackground(c.conf)
+	if err != nil {
 		c.err = errors.Wrap(err, "Could not start server")
 		return
-	} else {
-		fmt.Printf("Server started in background process: PID %d\n", pid)
 	}
+	fmt.Printf("Server started in background process: PID %d\n", pid)
 
 	// Wait for server to become available
 	notifyChan := make(chan struct{})
@@ -252,7 +261,7 @@ func (c *Client) PrintMessage(message string) {
 }
 
 // Print a short command description to the user.
-func (c *Client) PrintShortDescription(desc argparse.Description) {
+func (c *Client) printShortDescription(desc argparse.Description) {
 	fmt.Fprintln(c.msgout, os.Args[0], desc.Cmd, desc.First, desc.Second, desc.What)
 }
 
@@ -328,7 +337,7 @@ func printAllOperationsHelp(out io.Writer) {
 }
 
 // PrintError prints an error message for the user.
-func (c *Client) PrintError(err error) {
+func (c *Client) printError(err error) {
 	printError(err, c.msgout)
 }
 
