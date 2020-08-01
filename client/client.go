@@ -56,13 +56,13 @@ func Dispatch(conf *config.Opts, args []string) bool {
 		showUsageAndDie(errors.Errorf("No such command: %s", command))
 	}
 
-	cl := newClient(conf)
+	c := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		cl.PrintError(err)
-		cl.PrintShortDescription(op.DescribeShort())
+		c.PrintError(err)
+		c.PrintShortDescription(op.DescribeShort())
 		return false
-	} else if err := op.ClientExec(cl, cmd); err != nil {
-		cl.PrintError(err)
+	} else if err := op.ClientExec(c, cmd); err != nil {
+		c.PrintError(err)
 		return false
 	} else {
 		return true
@@ -78,14 +78,14 @@ type Client struct {
 }
 
 // Read from the client's connection.
-func (cl *Client) Read(p []byte) (n int, err error) {
-	if cl.Failed() {
-		return 0, errors.Wrap(cl.err, "cannot read from socket: preceding error")
+func (c *Client) Read(p []byte) (n int, err error) {
+	if c.Failed() {
+		return 0, errors.Wrap(c.err, "cannot read from socket: preceding error")
 	}
-	if cl.conn == nil {
+	if c.conn == nil {
 		panic("cannot read: connection not yet established")
 	}
-	return cl.conn.Read(p)
+	return c.conn.Read(p)
 }
 
 func newClient(conf *config.Opts) *Client {
@@ -270,7 +270,7 @@ func operationDescriptions() []argparse.Description {
 	return descriptions
 }
 
-// Whether a command with the given name exists.
+// CommandExists determines whether a command with that name is available.
 func (c *Client) CommandExists(cmd string) bool {
 	_, ok := operations[cmd]
 	return ok
