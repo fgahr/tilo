@@ -8,11 +8,9 @@ import (
 	"net"
 	"os"
 	"sort"
-	"text/tabwriter"
 	"time"
 
 	"github.com/fgahr/tilo/argparse"
-	"github.com/fgahr/tilo/client/output"
 	"github.com/fgahr/tilo/config"
 	"github.com/fgahr/tilo/msg"
 	"github.com/fgahr/tilo/server"
@@ -42,28 +40,31 @@ func RegisterOperation(name string, operation Operation) {
 // Dispatch to the appropriate command handler based on the given arguments.
 // Returns true if all operations succeeded, false otherwise.
 func Dispatch(conf *config.Opts, args []string) bool {
+	c := newClient(conf)
 	if len(args) == 0 {
-		showUsageAndDie(errors.New("No command given"))
+		c.PrintAllOperationsHelp()
+		c.fmt.Error(errors.New("No command given"))
+		return false
 	}
 
 	if args[0] == "-h" || args[0] == "--help" {
-		printAllOperationsHelp(os.Stderr)
+		c.PrintAllOperationsHelp()
 		return true
 	}
 
 	command := args[0]
 	op, ok := operations[command]
 	if !ok {
-		showUsageAndDie(errors.Errorf("No such command: %s", command))
+		c.PrintAllOperationsHelp()
+		c.fmt.Error(errors.Errorf("No such command: %s", command))
 	}
 
-	c := newClient(conf)
 	if cmd, err := op.Parser().Parse(args[1:]); err != nil {
-		c.printError(err)
+		c.fmt.Error(err)
 		c.printShortDescription(op.DescribeShort())
 		return false
 	} else if err := op.ClientExec(c, cmd); err != nil {
-		c.printError(err)
+		c.fmt.Error(err)
 		return false
 	} else {
 		return true
@@ -76,7 +77,7 @@ type Client struct {
 	conn   net.Conn
 	msgout io.Writer
 	err    error
-	fmt    output.Formatter
+	fmt    Formatter
 }
 
 // Read from the client's connection.
@@ -92,7 +93,12 @@ func (c *Client) Read(p []byte) (n int, err error) {
 }
 
 func newClient(conf *config.Opts) *Client {
-	return &Client{conf: conf, msgout: os.Stderr}
+	f := GetFormatter(conf.Output.Value)
+	if f == nil {
+		fmt.Fprintf(os.Stderr, "No such output format: %s, using default", conf.Output.Value)
+		f = GetFormatter("tabular")
+	}
+	return &Client{conf: conf, fmt: f}
 }
 
 // Failed returns whether the client has encountered an error.
@@ -176,25 +182,11 @@ func (c *Client) PrintResponse(resp msg.Response) {
 	if c.Failed() {
 		return
 	}
-	// FIXME: Pre-failure parts of the response should be printed as well.
-	// Response type might be rewritten.
+
 	if resp.Failed() {
 		c.err = resp.Err()
 	} else {
-		w := tabwriter.NewWriter(os.Stdout, 0, 4, 1, ' ', 0)
-		for _, line := range resp.Body {
-			noTab := true
-			for _, word := range line {
-				if noTab {
-					noTab = false
-				} else {
-					fmt.Fprint(w, "\t")
-				}
-				fmt.Fprint(w, word)
-			}
-			fmt.Fprint(w, "\n")
-		}
-		c.err = w.Flush()
+		c.fmt.Response(resp)
 	}
 }
 
@@ -288,67 +280,14 @@ func (c *Client) CommandExists(cmd string) bool {
 // PrintSingleOperationHelp prints the detailed help for a single command.
 func (c *Client) PrintSingleOperationHelp(cmd string) error {
 	if op, ok := operations[cmd]; ok {
-		header, footer := op.HelpHeaderAndFooter()
-		// Summary
-		sdesc := op.DescribeShort()
-		fmt.Fprintln(c.msgout, "Usage:", os.Args[0], sdesc.Cmd, sdesc.First, sdesc.Second)
-		// Header
-		fmt.Fprintf(c.msgout, "\n%s\n", header)
-		// Describe required task name(s), if any
-		if tdesc := op.Parser().TaskDescription(); tdesc != "" {
-			fmt.Fprintf(c.msgout, "\nRequired task information\n\t%s\n", tdesc)
-		}
-		// Parameter description
-		if pdesc := op.Parser().ParamDescription(); len(pdesc) > 0 {
-			fmt.Fprintf(c.msgout, "\nPossible parameters\n")
-			w := tabwriter.NewWriter(c.msgout, 4, 4, 2, ' ', 0)
-			for _, par := range pdesc {
-				fmt.Fprintf(w, "    %s\t%s\t%s\n",
-					par.ParamName, par.ParamValues, par.ParamExplanation)
-			}
-			w.Flush()
-		}
-		// Footer
-		if footer != "" {
-			fmt.Fprintf(c.msgout, "\n%s\n", footer)
-		}
+		c.fmt.HelpSingleOperation(op)
 		return nil
-	} else {
-		return errors.Errorf("No such operation: %s", cmd)
 	}
+	return errors.Errorf("No such operation: %s", cmd)
 }
 
 // PrintAllOperationsHelp prints a command usage overview for the user.
 func (c *Client) PrintAllOperationsHelp() {
-	printAllOperationsHelp(c.msgout)
-}
-
-// Print the help text for all available commands.
-func printAllOperationsHelp(out io.Writer) {
-	fmt.Fprintf(out,
-		"\nUsage: %s [command] <task(s)> <parameters>\n\n", os.Args[0])
-	fmt.Fprintln(out, "Available commands")
-
-	w := tabwriter.NewWriter(out, 4, 4, 2, ' ', 0)
-	for _, descr := range operationDescriptions() {
-		fmt.Fprintf(w, "    %s\t%s\t%s\t%s\n", descr.Cmd, descr.First, descr.Second, descr.What)
-	}
-	w.Flush()
-}
-
-// PrintError prints an error message for the user.
-func (c *Client) printError(err error) {
-	printError(err, c.msgout)
-}
-
-// Print an error message for the user.
-func printError(err error, w io.Writer) {
-	fmt.Fprintln(w, err.Error())
-}
-
-// Print the error, the usage message, then exit with error status.
-func showUsageAndDie(err error) {
-	printError(err, os.Stderr)
-	printAllOperationsHelp(os.Stderr)
-	os.Exit(2)
+	ops := operationDescriptions()
+	c.fmt.HelpAllOperations(ops)
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/fgahr/tilo/client"
+	_ "github.com/fgahr/tilo/client/tabular"
 	_ "github.com/fgahr/tilo/command/abort"
 	_ "github.com/fgahr/tilo/command/current"
 	_ "github.com/fgahr/tilo/command/help"

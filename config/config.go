@@ -6,33 +6,39 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
-	LOG_OFF   = "off"
-	LOG_WARN  = "warn"
-	LOG_INFO  = "info"
-	LOG_DEBUG = "debug"
-	LOG_TRACE = "trace"
+	// LogOff is the config value to set to disable logging
+	LogOff = "off"
+	// LogWarn is the config value to set to log warnings only
+	LogWarn = "warn"
+	// LogInfo is the config value to set for logging to include most infos
+	LogInfo = "info"
+	// LogDebug is the config value to set for logging to include debug data
+	LogDebug = "debug"
+	// LogTrace is the config value to set for logging to include all data
+	LogTrace = "trace"
 )
 
 func logLevel(description string) int {
 	switch description {
-	case LOG_OFF:
+	case LogOff:
 		return 0
-	case LOG_WARN:
+	case LogWarn:
 		return 1
-	case LOG_INFO:
+	case LogInfo:
 		return 2
-	case LOG_DEBUG:
+	case LogDebug:
 		return 3
-	case LOG_TRACE:
+	case LogTrace:
 		return 4
 	default:
 		return 1
@@ -40,8 +46,10 @@ func logLevel(description string) int {
 }
 
 const (
-	ENV_VAR_PREFIX = "__TILO_"
-	CLI_VAR_PREFIX = "--"
+	// EnvVarPrefix is the common prefix for environment variable names
+	EnvVarPrefix = "__TILO_"
+	// CliVarPrefix is the common prefix for command line variable names
+	CliVarPrefix = "--"
 )
 
 type taggedString struct {
@@ -80,7 +88,7 @@ func nameInEnv(item *Item) string {
 	return item.InEnv
 }
 
-// Configuration parameters.
+// Opts is a bundle of all configuration options
 type Opts struct {
 	// The location of the configuration file.
 	ConfFile Item
@@ -92,6 +100,8 @@ type Opts struct {
 	Backend Item
 	// Determines the amount of additional log output.
 	LogLevel Item
+	// Output determines the type of output printed to the user
+	Output Item
 }
 
 type BackendConfig interface {
@@ -181,7 +191,8 @@ func defaultConfig() *Opts {
 		Socket:   Item{InFile: "socket", InArgs: "socket", InEnv: "SOCKET", Value: socket},
 		Protocol: Item{InFile: "protocol", InArgs: "protocol", InEnv: "PROTOCOL", Value: "unix"},
 		Backend:  Item{InFile: "backend", InArgs: "backend", InEnv: "BACKEND", Value: "sqlite3"},
-		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: LOG_INFO},
+		LogLevel: Item{InFile: "log_level", InArgs: "log-level", InEnv: "LOG_LEVEL", Value: LogInfo},
+		Output:   Item{InFile: "output", InArgs: "output", InEnv: "OUTPUT", Value: "tabular"},
 	}
 }
 
@@ -204,23 +215,23 @@ func (c *Opts) SocketDir() string {
 }
 
 func (c *Opts) ShouldLogAny() bool {
-	return c.logLevel() > logLevel(LOG_OFF)
+	return c.logLevel() > logLevel(LogOff)
 }
 
 func (c *Opts) ShouldLogWarnings() bool {
-	return c.logLevel() >= logLevel(LOG_WARN)
+	return c.logLevel() >= logLevel(LogWarn)
 }
 
 func (c *Opts) ShouldLogInfo() bool {
-	return c.logLevel() >= logLevel(LOG_INFO)
+	return c.logLevel() >= logLevel(LogInfo)
 }
 
 func (c *Opts) ShouldLogDebug() bool {
-	return c.logLevel() >= logLevel(LOG_DEBUG)
+	return c.logLevel() >= logLevel(LogDebug)
 }
 
 func (c *Opts) ShouldLogTrace() bool {
-	return c.logLevel() >= logLevel(LOG_TRACE)
+	return c.logLevel() >= logLevel(LogTrace)
 }
 
 func (c *Opts) logLevel() int {
@@ -235,7 +246,7 @@ func (c *Opts) AsEnvKeyValue() []string {
 		fieldInfo := v.Type().Field(i)
 		tag := fieldInfo.Tag
 		name := tag.Get("env")
-		result[i] = fmt.Sprintf("%s%s=%v", ENV_VAR_PREFIX, name, v.Field(i))
+		result[i] = fmt.Sprintf("%s%s=%v", EnvVarPrefix, name, v.Field(i))
 
 	}
 	return result
@@ -247,7 +258,7 @@ func (c *Opts) MergeIntoEnv(env []string) []string {
 	for _, keyValuePair := range env {
 		// Skip tilo-related config. We assume we already have the definitive
 		// configuration and append it afterwards
-		if !strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
+		if !strings.HasPrefix(keyValuePair, EnvVarPrefix) {
 			result = append(result, keyValuePair)
 		}
 	}
@@ -289,7 +300,7 @@ func FromCommandLineParams(args []string) (rawConf, []string, error) {
 	var unused []string
 	for i := 0; i < len(args); i++ {
 		param := args[i]
-		if strings.HasPrefix(param, CLI_VAR_PREFIX) {
+		if strings.HasPrefix(param, CliVarPrefix) {
 			var rawKey, value string
 			// Value in the same arg?
 			if strings.Contains(param, "=") {
@@ -301,13 +312,13 @@ func FromCommandLineParams(args []string) (rawConf, []string, error) {
 				rawKey = param
 				if i+1 == len(args) {
 					return result, args, errors.New("No value for parameter: " + param)
-				} else if strings.HasPrefix(args[i+1], CLI_VAR_PREFIX) {
+				} else if strings.HasPrefix(args[i+1], CliVarPrefix) {
 					return result, args, errors.New("Not a valid value for parameter " + param + ": " + args[i+1])
 				}
 				i++
 				value = args[i]
 			}
-			key := strings.Replace(rawKey, CLI_VAR_PREFIX, "", 1)
+			key := strings.Replace(rawKey, CliVarPrefix, "", 1)
 			result.values[key] = value
 			result.inUse[key] = false
 		} else {
@@ -321,13 +332,13 @@ func FromCommandLineParams(args []string) (rawConf, []string, error) {
 func FromEnvironment(env []string) rawConf {
 	result := makeRawConf()
 	for _, keyValuePair := range env {
-		if strings.HasPrefix(keyValuePair, ENV_VAR_PREFIX) {
+		if strings.HasPrefix(keyValuePair, EnvVarPrefix) {
 			rawKey, value := splitKeyValue(keyValuePair)
 			if rawKey == "" {
 				// No need to save empty values
 				continue
 			}
-			key := strings.Replace(rawKey, ENV_VAR_PREFIX, "", 1)
+			key := strings.Replace(rawKey, EnvVarPrefix, "", 1)
 			result.values[key] = value
 			result.inUse[key] = false
 		}

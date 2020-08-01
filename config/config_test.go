@@ -31,19 +31,19 @@ func (c *testBackendConfig) AcceptedItems() []*Item {
 }
 
 func cliVar(name string) string {
-	return CLI_VAR_PREFIX + name
+	return CliVarPrefix + name
 }
 
 func cliVal(name, value string) string {
-	return CLI_VAR_PREFIX + name + "=" + value
+	return CliVarPrefix + name + "=" + value
 }
 
 func envVar(name string) string {
-	return ENV_VAR_PREFIX + name
+	return EnvVarPrefix + name
 }
 
 func envVal(name, value string) string {
-	return ENV_VAR_PREFIX + name + "=" + value
+	return EnvVarPrefix + name + "=" + value
 }
 
 func expect(t *testing.T, varName string, value string, expected string) {
